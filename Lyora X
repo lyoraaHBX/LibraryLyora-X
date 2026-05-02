@@ -94,6 +94,7 @@ local function Padding(p, top, bot, left, right)
     pad.PaddingLeft   = UDim.new(0, left  or 8)
     pad.PaddingRight  = UDim.new(0, right or 8)
     pad.Parent = p
+    return pad
 end
 
 local function ListLayout(p, pad, dir, hAlign, vAlign)
@@ -713,7 +714,8 @@ function AuraUI:_buildContent()
         Size=UDim2.new(1,-152,1,-58),
         Position=UDim2.new(0,152,0,57),
         BackgroundTransparency=1,
-        ClipsDescendants=true,
+        -- PENTING: ClipsDescendants=false agar dropdown panel tidak terpotong
+        ClipsDescendants=false,
         ZIndex=2,
         Parent=self.InnerClip,
     })
@@ -827,6 +829,10 @@ function AuraUI:AddTab(config)
         ZIndex=5, Parent=btn,
     })
 
+    -- ═══════════════════════════════════════
+    -- Page: ClipsDescendants=false agar panel
+    -- dropdown tidak terpotong oleh ScrollingFrame
+    -- ═══════════════════════════════════════
     local page = Create("ScrollingFrame",{
         Name="Page_"..tabName,
         Size=UDim2.new(1,-6,1,-6),
@@ -837,7 +843,9 @@ function AuraUI:AddTab(config)
         ScrollBarImageTransparency=0.4,
         ScrollingDirection=Enum.ScrollingDirection.Y,
         CanvasSize=UDim2.new(0,0,0,0),
-        ClipsDescendants=true,
+        -- ClipsDescendants HARUS false agar panel dropdown
+        -- yang overflow ke bawah tidak terpotong
+        ClipsDescendants=false,
         Visible=false,
         ZIndex=3,
         Parent=self.ContentArea,
@@ -1199,6 +1207,13 @@ function AuraUI:AddTab(config)
         return obj
     end
 
+    -- ═══════════════════════════════════════
+    --   DROPDOWN — Fixed: panel pakai
+    --   ScrollingFrame agar bisa discroll,
+    --   wrap ClipsDescendants=false,
+    --   panel di-parent ke ScreenGui saat
+    --   open agar tidak terpotong ScrollingFrame
+    -- ═══════════════════════════════════════
     function Tab:AddDropdown(cfg)
         cfg=cfg or {}
         local label    = cfg.Name     or "Dropdown"
@@ -1208,12 +1223,14 @@ function AuraUI:AddTab(config)
         local selected = default
         local isOpen   = false
 
+        -- wrap: tidak clip, tidak expand tinggi (dropdown panel akan float)
         local wrap=Create("Frame",{
             Size=UDim2.new(1,-10,0,44),
             BackgroundTransparency=1,
             ClipsDescendants=false,
             ZIndex=8, Parent=page,
         })
+
         local main=Create("TextButton",{
             Size=UDim2.new(1,0,0,44),
             BackgroundColor3=Theme.Surface,
@@ -1243,16 +1260,49 @@ function AuraUI:AddTab(config)
             TextColor3=Theme.TextMuted, TextSize=14, Font=Enum.Font.GothamBold,
             ZIndex=9, Parent=main,
         })
-        local panel=Create("Frame",{
-            Size=UDim2.new(1,0,0,0), Position=UDim2.new(0,0,0,48),
-            BackgroundColor3=Theme.BackgroundAlt,
-            ClipsDescendants=true, Visible=false,
-            ZIndex=20, Parent=wrap,
+
+        -- ── PANEL: pakai ScrollingFrame + ZIndex tinggi ──
+        -- Di-parent langsung ke ScreenGui agar tidak
+        -- terpotong oleh ScrollingFrame manapun di hierarki
+        local screenGui = self.Library and self.Library.ScreenGui
+        local panelParent = screenGui or page
+
+        local MAX_VISIBLE_H = 180  -- max tinggi panel sebelum scroll
+        local ITEM_H        = 34
+        local PAD           = 8
+
+        local panel = Create("ScrollingFrame",{
+            Size             = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = Theme.BackgroundAlt,
+            ClipsDescendants = true,
+            Visible          = false,
+            ScrollBarThickness      = 3,
+            ScrollBarImageColor3    = Theme.Accent,
+            ScrollBarImageTransparency = 0.4,
+            ScrollingDirection      = Enum.ScrollingDirection.Y,
+            CanvasSize              = UDim2.new(0,0,0,0),
+            -- ZIndex sangat tinggi agar selalu di atas semua elemen
+            ZIndex           = 500,
+            Parent           = panelParent,
         })
         Corner(panel,12) Stroke(panel,Theme.Border,1)
-        local pl2=ListLayout(panel,2)
-        pl2.HorizontalAlignment=Enum.HorizontalAlignment.Center
-        Padding(panel,4,4,4,4)
+
+        local pl2 = ListLayout(panel,2)
+        pl2.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        Padding(panel,PAD,PAD,4,4)
+        AutoCanvas(panel, pl2, PAD*2)
+
+        -- Fungsi update posisi panel mengikuti posisi wrap di layar
+        local function updatePanelPosition()
+            local ap = main.AbsolutePosition
+            local as = main.AbsoluteSize
+            local totalH = #options * (ITEM_H + 2) + PAD * 2
+            local panelH = math.min(totalH, MAX_VISIBLE_H)
+            local panelW = as.X
+
+            panel.Size     = UDim2.new(0, panelW, 0, panelH)
+            panel.Position = UDim2.new(0, ap.X, 0, ap.Y + as.Y + 4)
+        end
 
         local function buildOpts()
             for _,ch in ipairs(panel:GetChildren()) do
@@ -1261,17 +1311,17 @@ function AuraUI:AddTab(config)
             for _,opt in ipairs(options) do
                 local isSel=(opt==selected)
                 local ob=Create("TextButton",{
-                    Size=UDim2.new(1,0,0,32),
+                    Size=UDim2.new(1,0,0,ITEM_H),
                     BackgroundColor3=isSel and Theme.SurfaceHover or Theme.Surface,
                     Text="", AutoButtonColor=false,
-                    ZIndex=21, Parent=panel,
+                    ZIndex=501, Parent=panel,
                 })
                 Corner(ob,8)
                 Create("TextLabel",{
                     Size=UDim2.new(0,18,1,0), Position=UDim2.new(0,8,0,0),
                     BackgroundTransparency=1, Text=isSel and "✓" or "",
                     TextColor3=Theme.Accent, TextSize=12, Font=Enum.Font.GothamBold,
-                    ZIndex=22, Parent=ob,
+                    ZIndex=502, Parent=ob,
                 })
                 Create("TextLabel",{
                     Size=UDim2.new(1,-28,1,0), Position=UDim2.new(0,26,0,0),
@@ -1280,7 +1330,7 @@ function AuraUI:AddTab(config)
                     TextSize=12,
                     Font=isSel and Enum.Font.GothamSemibold or Enum.Font.Gotham,
                     TextXAlignment=Enum.TextXAlignment.Left,
-                    ZIndex=22, Parent=ob,
+                    ZIndex=502, Parent=ob,
                 })
                 ob.MouseEnter:Connect(function()
                     Tween(ob,{BackgroundColor3=Theme.SurfaceHover},0.1)
@@ -1293,9 +1343,10 @@ function AuraUI:AddTab(config)
                     selLbl.Text=tostring(opt)
                     buildOpts()
                     isOpen=false
-                    Tween(panel,{Size=UDim2.new(1,0,0,0)},0.2)
+                    -- Tutup dengan animasi
+                    Tween(panel,{Size=UDim2.new(0,panel.AbsoluteSize.X,0,0)},0.2)
                     Tween(arrow,{Rotation=0,TextColor3=Theme.TextMuted},0.2)
-                    Tween(wrap, {Size=UDim2.new(1,-10,0,44)},0.2)
+                    Tween(main, {BackgroundColor3=Theme.Surface},0.15)
                     task.delay(0.22,function() panel.Visible=false end)
                     pcall(callback,selected)
                 end)
@@ -1306,27 +1357,56 @@ function AuraUI:AddTab(config)
         main.MouseButton1Click:Connect(function()
             isOpen=not isOpen
             if isOpen then
+                updatePanelPosition()
                 panel.Visible=true
-                local ph=math.min(#options*34+8,180)
-                Tween(panel,{Size=UDim2.new(1,0,0,ph)},0.28,Enum.EasingStyle.Back)
+                local targetW = main.AbsoluteSize.X
+                local totalH  = #options * (ITEM_H + 2) + PAD * 2
+                local targetH = math.min(totalH, MAX_VISIBLE_H)
+                -- Mulai dari size 0 lalu expand
+                panel.Size = UDim2.new(0, targetW, 0, 0)
+                Tween(panel,{Size=UDim2.new(0,targetW,0,targetH)},0.28,Enum.EasingStyle.Back)
                 Tween(arrow,{Rotation=180,TextColor3=Theme.Accent},0.22)
-                Tween(wrap, {Size=UDim2.new(1,-10,0,44+4+ph)},0.28,Enum.EasingStyle.Back)
                 Tween(main, {BackgroundColor3=Theme.SurfaceHover},0.15)
             else
-                Tween(panel,{Size=UDim2.new(1,0,0,0)},0.2)
+                local curW = panel.AbsoluteSize.X
+                Tween(panel,{Size=UDim2.new(0,curW,0,0)},0.2)
                 Tween(arrow,{Rotation=0,TextColor3=Theme.TextMuted},0.2)
-                Tween(wrap, {Size=UDim2.new(1,-10,0,44)},0.2)
                 Tween(main, {BackgroundColor3=Theme.Surface},0.15)
                 task.delay(0.22,function()
                     if not isOpen then panel.Visible=false end
                 end)
             end
         end)
+
         main.MouseEnter:Connect(function()
             if not isOpen then Tween(main,{BackgroundColor3=Theme.SurfaceHover},0.15) end
         end)
         main.MouseLeave:Connect(function()
             if not isOpen then Tween(main,{BackgroundColor3=Theme.Surface},0.15) end
+        end)
+
+        -- Tutup dropdown jika klik di luar
+        UserInputService.InputBegan:Connect(function(inp)
+            if not isOpen then return end
+            if inp.UserInputType ~= Enum.UserInputType.MouseButton1
+            and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+            -- Cek apakah klik di dalam panel atau main
+            local mx, my = inp.Position.X, inp.Position.Y
+            local function insideFrame(f)
+                local ap = f.AbsolutePosition
+                local as = f.AbsoluteSize
+                return mx>=ap.X and mx<=ap.X+as.X and my>=ap.Y and my<=ap.Y+as.Y
+            end
+            if not insideFrame(main) and not insideFrame(panel) then
+                isOpen=false
+                local curW = panel.AbsoluteSize.X
+                Tween(panel,{Size=UDim2.new(0,curW,0,0)},0.2)
+                Tween(arrow,{Rotation=0,TextColor3=Theme.TextMuted},0.2)
+                Tween(main, {BackgroundColor3=Theme.Surface},0.15)
+                task.delay(0.22,function()
+                    if not isOpen then panel.Visible=false end
+                end)
+            end
         end)
 
         local obj={}
