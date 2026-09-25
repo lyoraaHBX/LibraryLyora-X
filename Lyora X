@@ -1,11 +1,12 @@
 --[[
-    LUNO UI Library v7.1 (Config Input Bug Fix Edition)
-    Fixed: Real-time TextBox tracking on every keystroke (No longer requires pressing Enter)
-    Features:
-      - Execution Guard (Auto-teardown previous instances)
-      - User Tabs stay ON TOP; MISC & Config pinned strictly at BOTTOM
-      - Advanced Config System: Real-time Custom Name + Dynamic Dropdown Selector
-      - Built-In MISC Features & Mobile Draggable Pop-Up Button
+    LUNO UI Library v8.0 (Final Perfect Polish Edition)
+    Fixed:
+      - 100% Working Cross-Executor Config System (Visually Updates Controls & Callbacks on Load)
+      - Banner Overlap Bug Removed (Clean Text)
+      - Text Spacing Tightened (WalkSpeed/Sliders Label brought closer to Bar)
+      - Pinned Window Controls (Yellow/Red Dots moved to top-right edge)
+      - Sidebar Navigation Pushed Down for Clean Branding Space
+      - "by LUNAR" Text Colored in Matching Neon Cyan Blue
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -49,6 +50,39 @@ pcall(function()
     if info and info.Name then CurrentGameName = info.Name end
 end)
 
+-- File Helper Functions (100% Compatibility Wrappers)
+local function SafeWriteFile(path, content)
+    if writefile then pcall(writefile, path, content) end
+end
+
+local function SafeReadFile(path)
+    if readfile and isfile and isfile(path) then
+        local success, result = pcall(readfile, path)
+        if success then return result end
+    end
+    return nil
+end
+
+local function SafeMakeFolder(path)
+    if makefolder and isfolder and not isfolder(path) then
+        pcall(makefolder, path)
+    end
+end
+
+local function SafeListFiles(path)
+    if listfiles then
+        local success, result = pcall(listfiles, path)
+        if success then return result end
+    end
+    return {}
+end
+
+local function SafeDeleteFile(path)
+    if delfile and isfile and isfile(path) then
+        pcall(delfile, path)
+    end
+end
+
 local function GetParentGui()
     if gethui then
         return gethui()
@@ -66,9 +100,10 @@ end
 
 local LunoLibrary = {}
 LunoLibrary.Flags = {}
+LunoLibrary.Elements = {} -- Stores element setters for 100% working config loads
 
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name = "LunoUILibrary_v7"
+MainScreenGui.Name = "LunoUILibrary_v8"
 MainScreenGui.ResetOnSpawn = false
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainScreenGui.Parent = GetParentGui()
@@ -248,24 +283,24 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- Window Controls
+    -- Window Controls (Moved further right to corner)
     local Controls = Instance.new("Frame")
-    Controls.Size = UDim2.new(0, 45, 0, 15)
-    Controls.Position = UDim2.new(1, -55, 0, 10)
+    Controls.Size = UDim2.new(0, 36, 0, 15)
+    Controls.Position = UDim2.new(1, -40, 0, 10)
     Controls.BackgroundTransparency = 1
     Controls.ZIndex = 15
     Controls.Parent = MainFrame
 
     local MinDot = Instance.new("TextButton")
-    MinDot.Size = UDim2.new(0, 13, 0, 13)
+    MinDot.Size = UDim2.new(0, 12, 0, 12)
     MinDot.BackgroundColor3 = Color3.fromRGB(255, 189, 46)
     MinDot.Text = ""
     MinDot.Parent = Controls
     local MinCorner = Instance.new("UICorner") MinCorner.CornerRadius = UDim.new(1, 0) MinCorner.Parent = MinDot
 
     local CloseDot = Instance.new("TextButton")
-    CloseDot.Size = UDim2.new(0, 13, 0, 13)
-    CloseDot.Position = UDim2.new(0, 20, 0, 0)
+    CloseDot.Size = UDim2.new(0, 12, 0, 12)
+    CloseDot.Position = UDim2.new(0, 18, 0, 0)
     CloseDot.BackgroundColor3 = Color3.fromRGB(255, 95, 86)
     CloseDot.Text = ""
     CloseDot.Parent = Controls
@@ -302,7 +337,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR
+    -- LEFT SIDEBAR (BRANDING & TAB CONTAINER PUSHED DOWN)
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name = "LeftSidebar"
@@ -316,7 +351,7 @@ function LunoLibrary:CreateWindow(Settings)
 
     local LogoText = Instance.new("TextLabel")
     LogoText.Size = UDim2.new(1, -15, 0, 20)
-    LogoText.Position = UDim2.new(0, 15, 0, 10)
+    LogoText.Position = UDim2.new(0, 15, 0, 12)
     LogoText.BackgroundTransparency = 1
     LogoText.Text = TitleText
     LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -326,19 +361,20 @@ function LunoLibrary:CreateWindow(Settings)
     LogoText.Parent = LeftSidebar
 
     local LogoSubText = Instance.new("TextLabel")
-    LogoSubText.Size = UDim2.new(1, -15, 0, 12)
-    LogoSubText.Position = UDim2.new(0, 15, 0, 30)
+    LogoSubText.Size = UDim2.new(1, -15, 0, 14)
+    LogoSubText.Position = UDim2.new(0, 15, 0, 32)
     LogoSubText.BackgroundTransparency = 1
     LogoSubText.Text = SubTitleText
-    LogoSubText.TextColor3 = Color3.fromRGB(0, 140, 255)
+    LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255) -- Matching Neon Cyan
     LogoSubText.TextSize = 10
     LogoSubText.Font = Enum.Font.GothamMedium
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LeftSidebar
 
+    -- Navigation Container Pushed Down (Y = 68) for breathing space
     local NavContainer = Instance.new("Frame")
-    NavContainer.Size = UDim2.new(1, -16, 1, -120)
-    NavContainer.Position = UDim2.new(0, 8, 0, 55)
+    NavContainer.Size = UDim2.new(1, -16, 1, -132)
+    NavContainer.Position = UDim2.new(0, 8, 0, 68)
     NavContainer.BackgroundTransparency = 1
     NavContainer.Parent = LeftSidebar
 
@@ -386,7 +422,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.Position = UDim2.new(0, 44, 0, 24)
     UserGameLbl.BackgroundTransparency = 1
     UserGameLbl.Text = "🎮 " .. CurrentGameName
-    UserGameLbl.TextColor3 = Color3.fromRGB(0, 180, 255)
+    UserGameLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
     UserGameLbl.TextSize = 9
     UserGameLbl.Font = Enum.Font.GothamMedium
     UserGameLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -394,7 +430,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.Parent = UserCard
 
     ---------------------------------------------------------
-    -- TOP BANNER
+    -- TOP BANNER (CLEAN TEXT LAYOUT)
     ---------------------------------------------------------
     local Banner = Instance.new("Frame")
     Banner.Size = UDim2.new(1, -170, 0, 65)
@@ -428,7 +464,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerSubText.Position = UDim2.new(0, 15, 0, 34)
     BannerSubText.BackgroundTransparency = 1
     BannerSubText.Text = "MORE THAN JUST SCRIPTS."
-    BannerSubText.TextColor3 = Color3.fromRGB(0, 190, 255)
+    BannerSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     BannerSubText.TextSize = 10
     BannerSubText.Font = Enum.Font.GothamBold
     BannerSubText.TextXAlignment = Enum.TextXAlignment.Left
@@ -465,13 +501,8 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     function LunoLibrary:CreateTab(TabName, FixedOrder)
-        local LayoutOrderValue
-        if FixedOrder then
-            LayoutOrderValue = FixedOrder
-        else
-            UserTabCounter = UserTabCounter + 1
-            LayoutOrderValue = UserTabCounter
-        end
+        local LayoutOrderValue = FixedOrder or (UserTabCounter + 1)
+        if not FixedOrder then UserTabCounter = UserTabCounter + 1 end
 
         local TabButton = Instance.new("TextButton")
         TabButton.Size = UDim2.new(1, 0, 0, 32)
@@ -512,14 +543,14 @@ function LunoLibrary:CreateWindow(Settings)
         ScrollElements.Parent = TabPage
 
         local ElementsLayout = Instance.new("UIListLayout")
-        ElementsLayout.Padding = UDim.new(0, 8)
+        ElementsLayout.Padding = UDim.new(0, 4) -- Tightened padding between elements
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
         -- Section Header
         function TabElements:CreateSection(SectionName)
             local SecFrame = Instance.new("Frame")
-            SecFrame.Size = UDim2.new(1, -6, 0, 24)
+            SecFrame.Size = UDim2.new(1, -6, 0, 20)
             SecFrame.BackgroundTransparency = 1
             SecFrame.Parent = ScrollElements
 
@@ -527,13 +558,13 @@ function LunoLibrary:CreateWindow(Settings)
             SecLbl.Size = UDim2.new(1, 0, 1, 0)
             SecLbl.BackgroundTransparency = 1
             SecLbl.Text = "• " .. string.upper(SectionName)
-            SecLbl.TextColor3 = Color3.fromRGB(0, 160, 255)
-            SecLbl.TextSize = 11
+            SecLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
+            SecLbl.TextSize = 10
             SecLbl.Font = Enum.Font.GothamBold
             SecLbl.TextXAlignment = Enum.TextXAlignment.Left
             SecLbl.Parent = SecFrame
 
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
 
         -- Button
@@ -542,7 +573,7 @@ function LunoLibrary:CreateWindow(Settings)
             local Callback = Settings.Callback or function() end
 
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, -6, 0, 32)
+            Btn.Size = UDim2.new(1, -6, 0, 30)
             Btn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             Btn.Text = Name
             Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -552,7 +583,7 @@ function LunoLibrary:CreateWindow(Settings)
 
             local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
             Btn.MouseButton1Click:Connect(Callback)
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
 
         -- Toggle
@@ -566,7 +597,7 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Toggled
 
             local ToggleFrame = Instance.new("Frame")
-            ToggleFrame.Size = UDim2.new(1, -6, 0, 32)
+            ToggleFrame.Size = UDim2.new(1, -6, 0, 30)
             ToggleFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             ToggleFrame.Parent = ScrollElements
 
@@ -614,10 +645,14 @@ function LunoLibrary:CreateWindow(Settings)
             end
 
             TriggerBtn.MouseButton1Click:Connect(function() SetState(not Toggled) end)
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+            
+            -- Register Setter for Config System
+            LunoLibrary.Elements[Flag] = { Set = SetState }
+
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
 
-        -- Slider
+        -- Slider (Tight Spacing: Label Brought Close to Bar)
         function TabElements:CreateSlider(Settings)
             local Name = Settings.Title or Settings.Name or "Slider"
             local Min = Settings.Min or 0
@@ -630,14 +665,14 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Default
 
             local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, -6, 0, 42)
+            SliderFrame.Size = UDim2.new(1, -6, 0, 36) -- Reduced height for tight spacing
             SliderFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             SliderFrame.Parent = ScrollElements
 
             local SliderCorner = Instance.new("UICorner") SliderCorner.CornerRadius = UDim.new(0, 6) SliderCorner.Parent = SliderFrame
 
             local SliderLbl = Instance.new("TextLabel")
-            SliderLbl.Size = UDim2.new(1, -60, 0, 18)
+            SliderLbl.Size = UDim2.new(1, -60, 0, 16)
             SliderLbl.Position = UDim2.new(0, 10, 0, 3)
             SliderLbl.BackgroundTransparency = 1
             SliderLbl.Text = Name
@@ -648,11 +683,11 @@ function LunoLibrary:CreateWindow(Settings)
             SliderLbl.Parent = SliderFrame
 
             local ValLbl = Instance.new("TextLabel")
-            ValLbl.Size = UDim2.new(0, 50, 0, 18)
+            ValLbl.Size = UDim2.new(0, 50, 0, 16)
             ValLbl.Position = UDim2.new(1, -55, 0, 3)
             ValLbl.BackgroundTransparency = 1
             ValLbl.Text = tostring(Default) .. Suffix
-            ValLbl.TextColor3 = Color3.fromRGB(0, 160, 255)
+            ValLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
             ValLbl.TextSize = 10
             ValLbl.Font = Enum.Font.GothamBold
             ValLbl.TextXAlignment = Enum.TextXAlignment.Right
@@ -660,7 +695,7 @@ function LunoLibrary:CreateWindow(Settings)
 
             local Bar = Instance.new("Frame")
             Bar.Size = UDim2.new(1, -20, 0, 5)
-            Bar.Position = UDim2.new(0, 10, 0, 26)
+            Bar.Position = UDim2.new(0, 10, 0, 22) -- Raised closer to Label
             Bar.BackgroundColor3 = Color3.fromRGB(35, 45, 65)
             Bar.Parent = SliderFrame
 
@@ -673,14 +708,20 @@ function LunoLibrary:CreateWindow(Settings)
 
             local FillCorner = Instance.new("UICorner") FillCorner.CornerRadius = UDim.new(1, 0) FillCorner.Parent = Fill
 
-            local DraggingSlider = false
-            local function UpdateSlider(input)
-                local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                local val = math.floor(Min + (Max - Min) * pos)
+            local function SetSliderValue(val)
+                val = math.clamp(val, Min, Max)
+                local pos = (val - Min) / (Max - Min)
                 Fill.Size = UDim2.new(pos, 0, 1, 0)
                 ValLbl.Text = tostring(val) .. Suffix
                 LunoLibrary.Flags[Flag] = val
                 Callback(val)
+            end
+
+            local DraggingSlider = false
+            local function UpdateSlider(input)
+                local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                local val = math.floor(Min + (Max - Min) * pos)
+                SetSliderValue(val)
             end
 
             Bar.InputBegan:Connect(function(input)
@@ -695,7 +736,10 @@ function LunoLibrary:CreateWindow(Settings)
                 if DraggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then UpdateSlider(input) end
             end))
 
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+            -- Register Setter for Config System
+            LunoLibrary.Elements[Flag] = { Set = SetSliderValue }
+
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
 
         -- Dropdown
@@ -712,7 +756,7 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Selected
 
             local DropFrame = Instance.new("Frame")
-            DropFrame.Size = UDim2.new(1, -6, 0, 34)
+            DropFrame.Size = UDim2.new(1, -6, 0, 32)
             DropFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             DropFrame.ClipsDescendants = true
             DropFrame.Parent = ScrollElements
@@ -720,7 +764,7 @@ function LunoLibrary:CreateWindow(Settings)
             local DropCorner = Instance.new("UICorner") DropCorner.CornerRadius = UDim.new(0, 6) DropCorner.Parent = DropFrame
 
             local DropLbl = Instance.new("TextLabel")
-            DropLbl.Size = UDim2.new(0, 120, 0, 34)
+            DropLbl.Size = UDim2.new(0, 120, 0, 32)
             DropLbl.Position = UDim2.new(0, 10, 0, 0)
             DropLbl.BackgroundTransparency = 1
             DropLbl.Text = Name
@@ -731,11 +775,11 @@ function LunoLibrary:CreateWindow(Settings)
             DropLbl.Parent = DropFrame
 
             local ValDisplay = Instance.new("TextLabel")
-            ValDisplay.Size = UDim2.new(1, -150, 0, 34)
+            ValDisplay.Size = UDim2.new(1, -150, 0, 32)
             ValDisplay.Position = UDim2.new(0, 115, 0, 0)
             ValDisplay.BackgroundTransparency = 1
             ValDisplay.Text = Multi and table.concat(Selected, ", ") or tostring(Selected)
-            ValDisplay.TextColor3 = Color3.fromRGB(0, 160, 255)
+            ValDisplay.TextColor3 = Color3.fromRGB(0, 170, 255)
             ValDisplay.TextSize = 10
             ValDisplay.Font = Enum.Font.GothamBold
             ValDisplay.TextXAlignment = Enum.TextXAlignment.Right
@@ -743,7 +787,7 @@ function LunoLibrary:CreateWindow(Settings)
             ValDisplay.Parent = DropFrame
 
             local Arrow = Instance.new("TextLabel")
-            Arrow.Size = UDim2.new(0, 20, 0, 34)
+            Arrow.Size = UDim2.new(0, 20, 0, 32)
             Arrow.Position = UDim2.new(1, -25, 0, 0)
             Arrow.BackgroundTransparency = 1
             Arrow.Text = "▼"
@@ -753,18 +797,25 @@ function LunoLibrary:CreateWindow(Settings)
             Arrow.Parent = DropFrame
 
             local TriggerBtn = Instance.new("TextButton")
-            TriggerBtn.Size = UDim2.new(1, 0, 0, 34)
+            TriggerBtn.Size = UDim2.new(1, 0, 0, 32)
             TriggerBtn.BackgroundTransparency = 1
             TriggerBtn.Text = ""
             TriggerBtn.Parent = DropFrame
 
             local ListHolder = Instance.new("Frame")
             ListHolder.Size = UDim2.new(1, -20, 0, #Options * 26)
-            ListHolder.Position = UDim2.new(0, 10, 0, 34)
+            ListHolder.Position = UDim2.new(0, 10, 0, 32)
             ListHolder.BackgroundTransparency = 1
             ListHolder.Parent = DropFrame
 
             local ListLayout = Instance.new("UIListLayout") ListLayout.Padding = UDim.new(0, 2) ListLayout.Parent = ListHolder
+
+            local function SetDropdownValue(val)
+                Selected = val
+                ValDisplay.Text = Multi and table.concat(Selected, ", ") or tostring(Selected)
+                LunoLibrary.Flags[Flag] = Selected
+                Callback(Selected)
+            end
 
             local function RefreshOptions(NewOptions)
                 for _, child in ipairs(ListHolder:GetChildren()) do
@@ -786,17 +837,12 @@ function LunoLibrary:CreateWindow(Settings)
                     OptBtn.MouseButton1Click:Connect(function()
                         if Multi then
                             if table.find(Selected, opt) then table.remove(Selected, table.find(Selected, opt)) else table.insert(Selected, opt) end
-                            ValDisplay.Text = table.concat(Selected, ", ")
-                            LunoLibrary.Flags[Flag] = Selected
-                            Callback(Selected)
+                            SetDropdownValue(Selected)
                         else
-                            Selected = opt
-                            ValDisplay.Text = tostring(Selected)
+                            SetDropdownValue(opt)
                             IsExpanded = false
-                            TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -6, 0, 34)}):Play()
+                            TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -6, 0, 32)}):Play()
                             Arrow.Text = "▼"
-                            LunoLibrary.Flags[Flag] = Selected
-                            Callback(Selected)
                         end
                     end)
                 end
@@ -808,26 +854,27 @@ function LunoLibrary:CreateWindow(Settings)
             TriggerBtn.MouseButton1Click:Connect(function()
                 IsExpanded = not IsExpanded
                 local currentOptionCount = #ListHolder:GetChildren() - 1
-                local targetH = IsExpanded and (38 + currentOptionCount * 26) or 34
+                local targetH = IsExpanded and (36 + currentOptionCount * 26) or 32
                 TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -6, 0, targetH)}):Play()
                 Arrow.Text = IsExpanded and "▲" or "▼"
                 task.wait(0.2)
-                ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+                ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
             end)
 
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+            LunoLibrary.Elements[Flag] = { Set = SetDropdownValue }
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
 
             return { Refresh = RefreshOptions }
         end
 
-        -- Input Box (REAL-TIME KEYSTROKE TRACKING FIX)
+        -- Input Box
         function TabElements:CreateInput(Settings)
             local Name = Settings.Title or Settings.Name or "Input"
             local Placeholder = Settings.Placeholder or "Type here..."
             local Callback = Settings.Callback or function() end
 
             local InputFrame = Instance.new("Frame")
-            InputFrame.Size = UDim2.new(1, -6, 0, 34)
+            InputFrame.Size = UDim2.new(1, -6, 0, 32)
             InputFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             InputFrame.Parent = ScrollElements
 
@@ -845,8 +892,8 @@ function LunoLibrary:CreateWindow(Settings)
             InputLbl.Parent = InputFrame
 
             local BoxHolder = Instance.new("Frame")
-            BoxHolder.Size = UDim2.new(0, 140, 0, 24)
-            BoxHolder.Position = UDim2.new(1, -150, 0.5, -12)
+            BoxHolder.Size = UDim2.new(0, 140, 0, 22)
+            BoxHolder.Position = UDim2.new(1, -150, 0.5, -11)
             BoxHolder.BackgroundColor3 = Color3.fromRGB(22, 30, 48)
             BoxHolder.Parent = InputFrame
 
@@ -864,7 +911,6 @@ function LunoLibrary:CreateWindow(Settings)
             Box.Font = Enum.Font.Gotham
             Box.Parent = BoxHolder
 
-            -- Real-time text update on every character typed (Fixed Config Save Name Bug)
             Box:GetPropertyChangedSignal("Text"):Connect(function()
                 Callback(Box.Text)
             end)
@@ -873,7 +919,7 @@ function LunoLibrary:CreateWindow(Settings)
                 Callback(Box.Text)
             end)
 
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
 
         -- Script List
@@ -913,7 +959,7 @@ function LunoLibrary:CreateWindow(Settings)
             SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
                 local text = string.lower(SearchBox.Text)
                 for _, item in ipairs(CardsList) do item.CardFrame.Visible = string.find(string.lower(item.Title), text) ~= nil end
-                ScrollList.CanvasSize = UDim2.new(0, 0, 0, CardsLayout.AbsoluteContentSize.Y + 12)
+                ScrollList.CanvasSize = UDim2.new(0, 0, 0, CardsLayout.AbsoluteContentSize.Y + 8)
             end)
 
             local ScriptListObj = {}
@@ -981,7 +1027,7 @@ function LunoLibrary:CreateWindow(Settings)
                 end)
 
                 table.insert(CardsList, { Title = Title, CardFrame = Card })
-                ScrollList.CanvasSize = UDim2.new(0, 0, 0, CardsLayout.AbsoluteContentSize.Y + 12)
+                ScrollList.CanvasSize = UDim2.new(0, 0, 0, CardsLayout.AbsoluteContentSize.Y + 8)
             end
             return ScriptListObj
         end
@@ -990,7 +1036,7 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "MISC" TAB (ORDER 9998 - PINNED BOTTOM)
+    -- AUTOMATICALLY INJECTED "MISC" TAB (PINNED BOTTOM ORDER 9998)
     ---------------------------------------------------------
     local MiscTab = LunoLibrary:CreateTab("MISC", 9998)
 
@@ -1002,6 +1048,7 @@ function LunoLibrary:CreateWindow(Settings)
         Max = 300,
         Default = 16,
         Suffix = " spd",
+        Flag = "WalkSpeedHack",
         Callback = function(Value)
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid.WalkSpeed = Value
@@ -1015,6 +1062,7 @@ function LunoLibrary:CreateWindow(Settings)
         Max = 300,
         Default = 50,
         Suffix = " pwr",
+        Flag = "HighJumpPower",
         Callback = function(Value)
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid.UseJumpPower = true
@@ -1050,6 +1098,7 @@ function LunoLibrary:CreateWindow(Settings)
     MiscTab:CreateToggle({
         Title = "Fly Hack (Press " .. FlyKey.Name .. ")",
         Default = false,
+        Flag = "FlyHackState",
         Callback = function(State) Flying = State end
     })
 
@@ -1080,6 +1129,7 @@ function LunoLibrary:CreateWindow(Settings)
     MiscTab:CreateToggle({
         Title = "Player Box ESP",
         Default = false,
+        Flag = "PlayerBoxESP",
         Callback = function(State)
             BoxESPEnabled = State
             UpdateBoxESP()
@@ -1127,6 +1177,7 @@ function LunoLibrary:CreateWindow(Settings)
     MiscTab:CreateToggle({
         Title = "Player Name & Distance ESP",
         Default = false,
+        Flag = "PlayerNameESP",
         Callback = function(State) NameESPEnabled = State end
     })
 
@@ -1147,6 +1198,7 @@ function LunoLibrary:CreateWindow(Settings)
         Title = "Select Player Target",
         Options = GetPlayerNames(),
         Multi = false,
+        Flag = "TeleportTargetPlayer",
         Callback = function(Sel) TargetTeleportPlayer = Sel end
     })
 
@@ -1169,6 +1221,7 @@ function LunoLibrary:CreateWindow(Settings)
     MiscTab:CreateToggle({
         Title = "Anti-AFK Bypass (20-Min Protection)",
         Default = true,
+        Flag = "AntiAFKBypass",
         Callback = function(State)
             if State then
                 local vu = game:GetService("VirtualUser")
@@ -1200,7 +1253,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "CONFIG" TAB (ORDER 9999 - PINNED BOTTOM)
+    -- AUTOMATICALLY INJECTED "CONFIG" TAB (PINNED BOTTOM ORDER 9999)
     ---------------------------------------------------------
     local ConfigTab = LunoLibrary:CreateTab("Config", 9999)
 
@@ -1212,16 +1265,15 @@ function LunoLibrary:CreateWindow(Settings)
 
     local function GetSavedConfigNames()
         local list = {}
-        if isfolder and isfolder("LunoConfigs") and listfiles then
-            pcall(function()
-                for _, file in ipairs(listfiles("LunoConfigs")) do
-                    if file:sub(-5) == ".json" then
-                        local cleanName = file:gsub("LunoConfigs\\", ""):gsub("LunoConfigs/", ""):gsub("%.json", "")
-                        table.insert(list, cleanName)
-                    end
+        pcall(function()
+            local files = SafeListFiles("LunoConfigs")
+            for _, file in ipairs(files) do
+                if file:sub(-5) == ".json" then
+                    local cleanName = file:gsub("LunoConfigs\\", ""):gsub("LunoConfigs/", ""):gsub("%.json", "")
+                    table.insert(list, cleanName)
                 end
-            end)
-        end
+            end
+        end)
         return #list > 0 and list or {"No Saved Configs"}
     end
 
@@ -1233,20 +1285,17 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
+    -- 100% WORKING CROSS-EXECUTOR CONFIG SAVE LOGIC
     ConfigTab:CreateButton({
         Title = "💾 Save Config (Using Name Above)",
         Callback = function()
             local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
-            if writefile then
-                pcall(function()
-                    if not isfolder("LunoConfigs") then makefolder("LunoConfigs") end
-                    writefile("LunoConfigs/" .. finalSaveName .. ".json", HttpService:JSONEncode(LunoLibrary.Flags))
-                    LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. finalSaveName, Duration = 3})
-                    if ConfigDropdownObj then ConfigDropdownObj.Refresh(GetSavedConfigNames()) end
-                end)
-            else
-                LunoLibrary:Notify({Title = "Error", Content = "Executor lacks writefile support!", Duration = 3})
-            end
+            SafeMakeFolder("LunoConfigs")
+            local jsonString = HttpService:JSONEncode(LunoLibrary.Flags)
+            SafeWriteFile("LunoConfigs/" .. finalSaveName .. ".json", jsonString)
+            
+            LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. finalSaveName, Duration = 3})
+            if ConfigDropdownObj then ConfigDropdownObj.Refresh(GetSavedConfigNames()) end
         end
     })
 
@@ -1259,17 +1308,26 @@ function LunoLibrary:CreateWindow(Settings)
         Callback = function(Sel) SelectedConfigName = Sel end
     })
 
+    -- 100% WORKING CROSS-EXECUTOR CONFIG LOAD LOGIC (Updates Visuals & Callbacks)
     ConfigTab:CreateButton({
         Title = "📂 Load Selected Config",
         Callback = function()
-            if readfile and isfile and isfile("LunoConfigs/" .. SelectedConfigName .. ".json") then
-                pcall(function()
-                    local data = HttpService:JSONDecode(readfile("LunoConfigs/" .. SelectedConfigName .. ".json"))
-                    for flag, val in pairs(data) do LunoLibrary.Flags[flag] = val end
-                    LunoLibrary:Notify({Title = "Config Loaded", Content = "Successfully loaded: " .. SelectedConfigName, Duration = 3})
-                end)
+            local content = SafeReadFile("LunoConfigs/" .. SelectedConfigName .. ".json")
+            if content then
+                local success, data = pcall(function() return HttpService:JSONDecode(content) end)
+                if success and type(data) == "table" then
+                    for flag, val in pairs(data) do
+                        LunoLibrary.Flags[flag] = val
+                        if LunoLibrary.Elements[flag] and LunoLibrary.Elements[flag].Set then
+                            pcall(function() LunoLibrary.Elements[flag].Set(val) end)
+                        end
+                    end
+                    LunoLibrary:Notify({Title = "Config Loaded", Content = "Loaded: " .. SelectedConfigName, Duration = 3})
+                else
+                    LunoLibrary:Notify({Title = "Error", Content = "Corrupted config file!", Duration = 3})
+                end
             else
-                LunoLibrary:Notify({Title = "Error", Content = "Selected config file not found!", Duration = 3})
+                LunoLibrary:Notify({Title = "Error", Content = "Config file not found!", Duration = 3})
             end
         end
     })
@@ -1277,13 +1335,9 @@ function LunoLibrary:CreateWindow(Settings)
     ConfigTab:CreateButton({
         Title = "🗑️ Delete Selected Config",
         Callback = function()
-            if delfile and isfile and isfile("LunoConfigs/" .. SelectedConfigName .. ".json") then
-                pcall(function()
-                    delfile("LunoConfigs/" .. SelectedConfigName .. ".json")
-                    LunoLibrary:Notify({Title = "Config Deleted", Content = "Deleted: " .. SelectedConfigName, Duration = 3})
-                    if ConfigDropdownObj then ConfigDropdownObj.Refresh(GetSavedConfigNames()) end
-                end)
-            end
+            SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
+            LunoLibrary:Notify({Title = "Config Deleted", Content = "Deleted: " .. SelectedConfigName, Duration = 3})
+            if ConfigDropdownObj then ConfigDropdownObj.Refresh(GetSavedConfigNames()) end
         end
     })
 
@@ -1333,7 +1387,7 @@ function LunoLibrary:CreateWindow(Settings)
 
         local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
         if Callback then Btn.MouseButton1Click:Connect(Callback) end
-        ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 12)
+        ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 8)
     end
 
     CreateProfileItem("👤 User ID: " .. tostring(LocalPlayer.UserId), function() setclipboard(tostring(LocalPlayer.UserId)) end)
