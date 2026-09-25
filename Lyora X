@@ -1,11 +1,10 @@
 --[[
-    LUNO UI Library v11.0 (Clean Default Bold Header & Centered Discord Revision)
+    LUNO UI Library v11.0 (Clean Minimalist Edition - Emoji Free)
     Revisions:
-      - Header "LUNO by LUNAR" now uses Roblox Core Default Bold Font (SourceSansBold).
-      - "MORE THAN JUST SCRIPTS." sub-text font preserved as requested.
-      - Discord Button: Removed emoji, enlarged text, centered alignment, Default Bold without outline.
-      - Section Headers remain 100% bullet-free (No dots).
-      - 100% Cross-Executor & Mobile/PC Compatibility Guarantee.
+      - 100% Emoji Removal across all UI components for a clean & modern aesthetic.
+      - Preserved Header "LUNO by LUNAR" Default Bold Font (SourceSansBold).
+      - Preserved Sub-Text "MORE THAN JUST SCRIPTS." & Centered Discord button.
+      - 100% Native Core Fonts used (Zero blank text bug on any Executor).
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -361,7 +360,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR & HEADER (Default Bold "LUNO by LUNAR")
+    -- LEFT SIDEBAR & HEADER
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name = "LeftSidebar"
@@ -398,7 +397,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoText.Text = TitleText
     LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
     LogoText.TextSize = 20
-    LogoText.Font = Enum.Font.SourceSansBold -- Font Default Bold
+    LogoText.Font = Enum.Font.SourceSansBold
     LogoText.TextXAlignment = Enum.TextXAlignment.Left
     LogoText.Parent = LogoHeaderCard
 
@@ -409,23 +408,21 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.Text = SubTitleText
     LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     LogoSubText.TextSize = 12
-    LogoSubText.Font = Enum.Font.SourceSansBold -- Font Default Bold
+    LogoSubText.Font = Enum.Font.SourceSansBold
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    ---------------------------------------------------------
-    -- REVISED DISCORD BUTTON (Centered, No Emoji, Default Bold)
-    ---------------------------------------------------------
+    -- DISCORD BUTTON (Clean Centered Default Bold)
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
     DiscordBtn.Position = UDim2.new(0, 8, 1, -94)
     DiscordBtn.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
-    DiscordBtn.Text = "Discord" -- Dihapus emojinya
+    DiscordBtn.Text = "Discord"
     DiscordBtn.TextColor3 = Color3.fromRGB(120, 180, 255)
-    DiscordBtn.Font = Enum.Font.SourceSansBold -- Default Bold tanpa outline
-    DiscordBtn.TextSize = 14 -- Ukuran diperbesar sedikit
-    DiscordBtn.TextXAlignment = Enum.TextXAlignment.Center -- Posisi Tengah
+    DiscordBtn.Font = Enum.Font.SourceSansBold
+    DiscordBtn.TextSize = 14
+    DiscordBtn.TextXAlignment = Enum.TextXAlignment.Center
     DiscordBtn.Parent = LeftSidebar
 
     local DiscordCorner = Instance.new("UICorner") DiscordCorner.CornerRadius = UDim.new(0, 6) DiscordCorner.Parent = DiscordBtn
@@ -479,7 +476,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.Size = UDim2.new(1, -48, 0, 12)
     UserGameLbl.Position = UDim2.new(0, 44, 0, 24)
     UserGameLbl.BackgroundTransparency = 1
-    UserGameLbl.Text = "🎮 " .. CurrentGameName
+    UserGameLbl.Text = CurrentGameName -- Tanpa Emoji Game
     UserGameLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
     UserGameLbl.TextSize = 10
     UserGameLbl.Font = Enum.Font.TitilliumWeb
@@ -525,7 +522,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerText.Text = TitleText .. " " .. SubTitleText
     BannerText.TextColor3 = Color3.fromRGB(255, 255, 255)
     BannerText.TextSize = 20
-    BannerText.Font = Enum.Font.SourceSansBold -- Default Bold
+    BannerText.Font = Enum.Font.SourceSansBold
     BannerText.TextXAlignment = Enum.TextXAlignment.Left
     BannerText.Parent = Banner
 
@@ -536,7 +533,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerSubText.Text = "MORE THAN JUST SCRIPTS."
     BannerSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     BannerSubText.TextSize = 11
-    BannerSubText.Font = Enum.Font.TitilliumWeb -- Font Asli Dipertahankan
+    BannerSubText.Font = Enum.Font.TitilliumWeb
     BannerSubText.TextXAlignment = Enum.TextXAlignment.Left
     BannerSubText.Parent = Banner
 
@@ -617,7 +614,7 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
-        -- Section Header (100% Tanpa Titik)
+        -- Section Header (Clean Header)
         function TabElements:CreateSection(SectionName)
             local SecFrame = Instance.new("Frame")
             SecFrame.Size = UDim2.new(1, -6, 0, 20)
@@ -1001,7 +998,7 @@ function LunoLibrary:CreateWindow(Settings)
             SearchBox.Size = UDim2.new(1, -12, 1, 0)
             SearchBox.Position = UDim2.new(0, 8, 0, 0)
             SearchBox.BackgroundTransparency = 1
-            SearchBox.PlaceholderText = "🔍 Search script..."
+            SearchBox.PlaceholderText = "Search script..." -- Tanpa Emoji
             SearchBox.PlaceholderColor3 = Color3.fromRGB(90, 110, 140)
             SearchBox.Text = ""
             SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1077,9 +1074,9 @@ function LunoLibrary:CreateWindow(Settings)
                 CopyBtn.Size = UDim2.new(0, 65, 0, 26)
                 CopyBtn.Position = UDim2.new(1, -73, 0.5, -13)
                 CopyBtn.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
-                CopyBtn.Text = "📋 Execute"
+                CopyBtn.Text = "Execute" -- Tanpa Emoji
                 CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                CopyBtn.TextSize = 10
+                CopyBtn.TextSize = 11
                 CopyBtn.Font = Enum.Font.TitilliumWeb
                 CopyBtn.Parent = Card
 
@@ -1087,9 +1084,9 @@ function LunoLibrary:CreateWindow(Settings)
 
                 CopyBtn.MouseButton1Click:Connect(function()
                     Callback()
-                    CopyBtn.Text = "✓ Done"
+                    CopyBtn.Text = "Done" -- Tanpa Emoji
                     task.wait(1)
-                    CopyBtn.Text = "📋 Execute"
+                    CopyBtn.Text = "Execute"
                 end)
 
                 table.insert(CardsList, { Title = Title, CardFrame = Card })
@@ -1299,7 +1296,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     MiscTab:CreateButton({
-        Title = "🚀 100% Anti-Lag FPS Booster",
+        Title = "100% Anti-Lag FPS Booster", -- Tanpa Emoji
         Callback = function()
             pcall(function()
                 Lighting.GlobalShadows = false
@@ -1355,7 +1352,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "💾 Save Config (Using Name Above)",
+        Title = "Save Config (Using Name Above)", -- Tanpa Emoji
         Callback = function()
             local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             SafeMakeFolder("LunoConfigs")
@@ -1382,7 +1379,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "📂 Load Selected Config",
+        Title = "Load Selected Config", -- Tanpa Emoji
         Callback = function()
             local targetFile = SelectedConfigName
             if not targetFile or targetFile == "" or targetFile == "No Saved Configs" then
@@ -1415,7 +1412,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "🗑️ Delete Selected Config",
+        Title = "Delete Selected Config", -- Tanpa Emoji
         Callback = function()
             if SelectedConfigName ~= "" and SelectedConfigName ~= "No Saved Configs" then
                 SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
@@ -1428,7 +1425,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "🔄 Refresh Config List",
+        Title = "Refresh Config List", -- Tanpa Emoji
         Callback = function()
             if ConfigDropdownObj then
                 local newList = GetSavedConfigNames()
@@ -1477,11 +1474,12 @@ function LunoLibrary:CreateWindow(Settings)
         ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 8)
     end
 
-    CreateProfileItem("👤 User ID: " .. tostring(LocalPlayer.UserId), function() RealSetClipboard(tostring(LocalPlayer.UserId)) end)
-    CreateProfileItem("🎮 Game: " .. CurrentGameName, nil)
-    CreateProfileItem("🔑 Job ID: " .. tostring(game.JobId), function() RealSetClipboard(tostring(game.JobId)) end)
-    CreateProfileItem("🔄 Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
-    CreateProfileItem("🔀 Server Hop (Random)", function()
+    -- Semua Emojis Dihapus Total Dari Profile Page
+    CreateProfileItem("User ID: " .. tostring(LocalPlayer.UserId), function() RealSetClipboard(tostring(LocalPlayer.UserId)) end)
+    CreateProfileItem("Game: " .. CurrentGameName, nil)
+    CreateProfileItem("Job ID: " .. tostring(game.JobId), function() RealSetClipboard(tostring(game.JobId)) end)
+    CreateProfileItem("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+    CreateProfileItem("Server Hop (Random)", function()
         pcall(function()
             local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=Desc&limit=100")
             local body = HttpService:JSONDecode(req)
@@ -1495,7 +1493,7 @@ function LunoLibrary:CreateWindow(Settings)
             end
         end)
     end)
-    CreateProfileItem("📉 Small Server Hop (Lowest Players)", function()
+    CreateProfileItem("Small Server Hop (Lowest Players)", function()
         pcall(function()
             local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=Asc&limit=100")
             local body = HttpService:JSONDecode(req)
