@@ -1,9 +1,10 @@
 --[[
-    LUNO UI Library v11.0 (Larger Transparent Floating Text)
+    LUNO UI Library v11.0 (Unique Typography & Anti-AI Visual Perfection)
     Revisions:
-      - Floating Text "LUNO" size increased for better visibility and easier touch on Mobile/Tablet
-      - 100% Transparent Background with Sleek Neon Text Outline
-      - Full Dragging, Config & MISC Systems intact
+      - Removed bullet points (•) from ALL Section Headers globally.
+      - Upgraded Typography: SpaceGrotesk (Headers/Titles) & Inter (UI Elements).
+      - Transparent Floating "LUNO" Badge with SpaceGrotesk styling.
+      - Full Config & MISC Systems intact with Cross-Executor Support.
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -159,7 +160,7 @@ function LunoLibrary:Notify(Settings)
     ToastTitle.Text = Title
     ToastTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
     ToastTitle.TextSize = 11
-    ToastTitle.Font = Enum.Font.GothamBold
+    ToastTitle.Font = Enum.Font.InterBold
     ToastTitle.TextXAlignment = Enum.TextXAlignment.Left
     ToastTitle.Parent = Toast
 
@@ -170,7 +171,7 @@ function LunoLibrary:Notify(Settings)
     ToastContent.Text = Content
     ToastContent.TextColor3 = Color3.fromRGB(130, 150, 180)
     ToastContent.TextSize = 10
-    ToastContent.Font = Enum.Font.Gotham
+    ToastContent.Font = Enum.Font.Inter
     ToastContent.TextXAlignment = Enum.TextXAlignment.Left
     ToastContent.TextWrapped = true
     ToastContent.Parent = Toast
@@ -231,7 +232,7 @@ function LunoLibrary:CreateWindow(Settings)
     ResizeHitbox.Text = "◢"
     ResizeHitbox.TextColor3 = Color3.fromRGB(0, 140, 255)
     ResizeHitbox.TextSize = 16
-    ResizeHitbox.Font = Enum.Font.GothamBold
+    ResizeHitbox.Font = Enum.Font.SpaceGrotesk
     ResizeHitbox.ZIndex = 30
     ResizeHitbox.Parent = MainFrame
 
@@ -254,13 +255,13 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- TRANSPARENT MOBILE & TABLET FLOATING BUTTON (LARGER "LUNO" TEXT)
+    -- TRANSPARENT FLOATING BADGE (SpaceGrotesk Font)
     ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
-    FloatingPopUp.Size = UDim2.new(0, 90, 0, 36) -- Diperbesar agar area sentuh luas
+    FloatingPopUp.Size = UDim2.new(0, 95, 0, 38)
     FloatingPopUp.Position = UDim2.new(0, 15, 0.25, 0)
-    FloatingPopUp.BackgroundTransparency = 1 -- 100% Transparan
+    FloatingPopUp.BackgroundTransparency = 1
     FloatingPopUp.Visible = (DeviceType ~= "PC")
     FloatingPopUp.ZIndex = 999
     FloatingPopUp.Parent = MainScreenGui
@@ -270,18 +271,17 @@ function LunoLibrary:CreateWindow(Settings)
     FloatBtn.BackgroundTransparency = 1
     FloatBtn.Text = "LUNO"
     FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FloatBtn.Font = Enum.Font.GothamBlack
-    FloatBtn.TextSize = 19 -- Ukuran teks diperbesar signifikan
+    FloatBtn.Font = Enum.Font.SpaceGrotesk
+    FloatBtn.TextSize = 20
     FloatBtn.Parent = FloatingPopUp
 
-    -- Neon Outline tipis untuk memperjelas teks di background terang/gelap
     local FloatTextStroke = Instance.new("UIStroke")
     FloatTextStroke.Color = Color3.fromRGB(0, 130, 255)
     FloatTextStroke.Thickness = 1.8
     FloatTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
     FloatTextStroke.Parent = FloatBtn
 
-    -- Smooth Dragging Logic for Floating Icon
+    -- Dragging Floating Icon
     local FloatDragging = false
     local FloatDragStart, FloatStartPos
 
@@ -360,7 +360,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR WITH MATCHING NEON GRADIENT HEADER CARD
+    -- LEFT SIDEBAR & HEADER
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name = "LeftSidebar"
@@ -372,7 +372,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     local SidebarCorner = Instance.new("UICorner") SidebarCorner.CornerRadius = UDim.new(0, 12) SidebarCorner.Parent = LeftSidebar
 
-    -- MATCHING HEADER LOGO CARD
     local LogoHeaderCard = Instance.new("Frame")
     LogoHeaderCard.Name = "LogoHeaderCard"
     LogoHeaderCard.Size = UDim2.new(1, -16, 0, 65)
@@ -398,7 +397,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoText.Text = TitleText
     LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
     LogoText.TextSize = 18
-    LogoText.Font = Enum.Font.GothamBlack
+    LogoText.Font = Enum.Font.SpaceGrotesk
     LogoText.TextXAlignment = Enum.TextXAlignment.Left
     LogoText.Parent = LogoHeaderCard
 
@@ -409,7 +408,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.Text = SubTitleText
     LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     LogoSubText.TextSize = 10
-    LogoSubText.Font = Enum.Font.GothamBold
+    LogoSubText.Font = Enum.Font.InterBold
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
@@ -421,7 +420,7 @@ function LunoLibrary:CreateWindow(Settings)
     DiscordBtn.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
     DiscordBtn.Text = "   💬 Discord"
     DiscordBtn.TextColor3 = Color3.fromRGB(120, 180, 255)
-    DiscordBtn.Font = Enum.Font.GothamBold
+    DiscordBtn.Font = Enum.Font.InterBold
     DiscordBtn.TextSize = 11
     DiscordBtn.TextXAlignment = Enum.TextXAlignment.Left
     DiscordBtn.Parent = LeftSidebar
@@ -468,7 +467,7 @@ function LunoLibrary:CreateWindow(Settings)
     UsernameLbl.Text = LocalPlayer.DisplayName
     UsernameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
     UsernameLbl.TextSize = 11
-    UsernameLbl.Font = Enum.Font.GothamBold
+    UsernameLbl.Font = Enum.Font.InterBold
     UsernameLbl.TextXAlignment = Enum.TextXAlignment.Left
     UsernameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     UsernameLbl.Parent = UserCard
@@ -480,7 +479,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.Text = "🎮 " .. CurrentGameName
     UserGameLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
     UserGameLbl.TextSize = 9
-    UserGameLbl.Font = Enum.Font.GothamMedium
+    UserGameLbl.Font = Enum.Font.Inter
     UserGameLbl.TextXAlignment = Enum.TextXAlignment.Left
     UserGameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     UserGameLbl.Parent = UserCard
@@ -523,7 +522,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerText.Text = TitleText .. " " .. SubTitleText
     BannerText.TextColor3 = Color3.fromRGB(255, 255, 255)
     BannerText.TextSize = 18
-    BannerText.Font = Enum.Font.GothamBlack
+    BannerText.Font = Enum.Font.SpaceGrotesk
     BannerText.TextXAlignment = Enum.TextXAlignment.Left
     BannerText.Parent = Banner
 
@@ -534,7 +533,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerSubText.Text = "MORE THAN JUST SCRIPTS."
     BannerSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     BannerSubText.TextSize = 10
-    BannerSubText.Font = Enum.Font.GothamBold
+    BannerSubText.Font = Enum.Font.InterBold
     BannerSubText.TextXAlignment = Enum.TextXAlignment.Left
     BannerSubText.Parent = Banner
 
@@ -579,7 +578,7 @@ function LunoLibrary:CreateWindow(Settings)
         TabButton.Text = "   " .. TabName
         TabButton.TextColor3 = Color3.fromRGB(130, 150, 180)
         TabButton.TextSize = 11
-        TabButton.Font = Enum.Font.GothamMedium
+        TabButton.Font = Enum.Font.InterBold
         TabButton.TextXAlignment = Enum.TextXAlignment.Left
         TabButton.LayoutOrder = LayoutOrderValue
         TabButton.Parent = NavContainer
@@ -615,7 +614,7 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
-        -- Section Header
+        -- Section Header (TANPA TITIK / BULLET POINT)
         function TabElements:CreateSection(SectionName)
             local SecFrame = Instance.new("Frame")
             SecFrame.Size = UDim2.new(1, -6, 0, 20)
@@ -625,10 +624,10 @@ function LunoLibrary:CreateWindow(Settings)
             local SecLbl = Instance.new("TextLabel")
             SecLbl.Size = UDim2.new(1, 0, 1, 0)
             SecLbl.BackgroundTransparency = 1
-            SecLbl.Text = "• " .. string.upper(SectionName)
+            SecLbl.Text = string.upper(SectionName) -- Langsung Nama Section tanpa "• "
             SecLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
-            SecLbl.TextSize = 10
-            SecLbl.Font = Enum.Font.GothamBold
+            SecLbl.TextSize = 11
+            SecLbl.Font = Enum.Font.SpaceGrotesk
             SecLbl.TextXAlignment = Enum.TextXAlignment.Left
             SecLbl.Parent = SecFrame
 
@@ -646,7 +645,7 @@ function LunoLibrary:CreateWindow(Settings)
             Btn.Text = Name
             Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             Btn.TextSize = 11
-            Btn.Font = Enum.Font.GothamBold
+            Btn.Font = Enum.Font.InterBold
             Btn.Parent = ScrollElements
 
             local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
@@ -678,7 +677,7 @@ function LunoLibrary:CreateWindow(Settings)
             ToggleLbl.Text = Name
             ToggleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
             ToggleLbl.TextSize = 11
-            ToggleLbl.Font = Enum.Font.Gotham
+            ToggleLbl.Font = Enum.Font.Inter
             ToggleLbl.TextXAlignment = Enum.TextXAlignment.Left
             ToggleLbl.Parent = ToggleFrame
 
@@ -744,7 +743,7 @@ function LunoLibrary:CreateWindow(Settings)
             SliderLbl.Text = Name
             SliderLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
             SliderLbl.TextSize = 10
-            SliderLbl.Font = Enum.Font.Gotham
+            SliderLbl.Font = Enum.Font.Inter
             SliderLbl.TextXAlignment = Enum.TextXAlignment.Left
             SliderLbl.Parent = SliderFrame
 
@@ -755,7 +754,7 @@ function LunoLibrary:CreateWindow(Settings)
             ValLbl.Text = tostring(Default) .. Suffix
             ValLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
             ValLbl.TextSize = 10
-            ValLbl.Font = Enum.Font.GothamBold
+            ValLbl.Font = Enum.Font.InterBold
             ValLbl.TextXAlignment = Enum.TextXAlignment.Right
             ValLbl.Parent = SliderFrame
 
@@ -834,7 +833,7 @@ function LunoLibrary:CreateWindow(Settings)
             DropLbl.Text = Name
             DropLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
             DropLbl.TextSize = 11
-            DropLbl.Font = Enum.Font.Gotham
+            DropLbl.Font = Enum.Font.Inter
             DropLbl.TextXAlignment = Enum.TextXAlignment.Left
             DropLbl.Parent = DropFrame
 
@@ -845,7 +844,7 @@ function LunoLibrary:CreateWindow(Settings)
             ValDisplay.Text = Multi and table.concat(Selected, ", ") or tostring(Selected)
             ValDisplay.TextColor3 = Color3.fromRGB(0, 170, 255)
             ValDisplay.TextSize = 10
-            ValDisplay.Font = Enum.Font.GothamBold
+            ValDisplay.Font = Enum.Font.InterBold
             ValDisplay.TextXAlignment = Enum.TextXAlignment.Right
             ValDisplay.TextTruncate = Enum.TextTruncate.AtEnd
             ValDisplay.Parent = DropFrame
@@ -857,7 +856,7 @@ function LunoLibrary:CreateWindow(Settings)
             Arrow.Text = "▼"
             Arrow.TextColor3 = Color3.fromRGB(120, 140, 170)
             Arrow.TextSize = 10
-            Arrow.Font = Enum.Font.Gotham
+            Arrow.Font = Enum.Font.Inter
             Arrow.Parent = DropFrame
 
             local TriggerBtn = Instance.new("TextButton")
@@ -892,7 +891,7 @@ function LunoLibrary:CreateWindow(Settings)
                     OptBtn.Text = "  " .. opt
                     OptBtn.TextColor3 = Color3.fromRGB(200, 210, 230)
                     OptBtn.TextSize = 10
-                    OptBtn.Font = Enum.Font.Gotham
+                    OptBtn.Font = Enum.Font.Inter
                     OptBtn.TextXAlignment = Enum.TextXAlignment.Left
                     OptBtn.Parent = ListHolder
 
@@ -951,7 +950,7 @@ function LunoLibrary:CreateWindow(Settings)
             InputLbl.Text = Name
             InputLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
             InputLbl.TextSize = 11
-            InputLbl.Font = Enum.Font.Gotham
+            InputLbl.Font = Enum.Font.Inter
             InputLbl.TextXAlignment = Enum.TextXAlignment.Left
             InputLbl.Parent = InputFrame
 
@@ -972,7 +971,7 @@ function LunoLibrary:CreateWindow(Settings)
             Box.Text = ""
             Box.TextColor3 = Color3.fromRGB(255, 255, 255)
             Box.TextSize = 10
-            Box.Font = Enum.Font.Gotham
+            Box.Font = Enum.Font.Inter
             Box.Parent = BoxHolder
 
             Box:GetPropertyChangedSignal("Text"):Connect(function()
@@ -1004,7 +1003,7 @@ function LunoLibrary:CreateWindow(Settings)
             SearchBox.Text = ""
             SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
             SearchBox.TextSize = 10
-            SearchBox.Font = Enum.Font.Gotham
+            SearchBox.Font = Enum.Font.Inter
             SearchBox.TextXAlignment = Enum.TextXAlignment.Left
             SearchBox.Parent = SearchFrame
 
@@ -1055,7 +1054,7 @@ function LunoLibrary:CreateWindow(Settings)
                 CardTitle.Text = Title
                 CardTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
                 CardTitle.TextSize = 11
-                CardTitle.Font = Enum.Font.GothamBold
+                CardTitle.Font = Enum.Font.InterBold
                 CardTitle.TextXAlignment = Enum.TextXAlignment.Left
                 CardTitle.Parent = Card
 
@@ -1066,7 +1065,7 @@ function LunoLibrary:CreateWindow(Settings)
                 CardDesc.Text = Desc
                 CardDesc.TextColor3 = Color3.fromRGB(110, 130, 160)
                 CardDesc.TextSize = 9
-                CardDesc.Font = Enum.Font.Gotham
+                CardDesc.Font = Enum.Font.Inter
                 CardDesc.TextXAlignment = Enum.TextXAlignment.Left
                 CardDesc.TextTruncate = Enum.TextTruncate.AtEnd
                 CardDesc.Parent = Card
@@ -1078,7 +1077,7 @@ function LunoLibrary:CreateWindow(Settings)
                 CopyBtn.Text = "📋 Execute"
                 CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 CopyBtn.TextSize = 9
-                CopyBtn.Font = Enum.Font.GothamBold
+                CopyBtn.Font = Enum.Font.InterBold
                 CopyBtn.Parent = Card
 
                 local CopyCorner = Instance.new("UICorner") CopyCorner.CornerRadius = UDim.new(0, 5) CopyCorner.Parent = CopyBtn
@@ -1100,7 +1099,7 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "MISC" TAB (PINNED ORDER 9998)
+    -- AUTOMATICALLY INJECTED "MISC" TAB
     ---------------------------------------------------------
     local MiscTab = LunoLibrary:CreateTab("MISC", 9998)
 
@@ -1219,7 +1218,7 @@ function LunoLibrary:CreateWindow(Settings)
                         lbl.BackgroundTransparency = 1
                         lbl.TextColor3 = Color3.fromRGB(0, 200, 255)
                         lbl.TextSize = 10
-                        lbl.Font = Enum.Font.GothamBold
+                        lbl.Font = Enum.Font.InterBold
                         lbl.Parent = bg
                         bg.Parent = plr.Character.Head
                         table.insert(ESPStorage, bg)
@@ -1317,7 +1316,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "CONFIG" TAB (PINNED ORDER 9999)
+    -- AUTOMATICALLY INJECTED "CONFIG" TAB
     ---------------------------------------------------------
     local ConfigTab = LunoLibrary:CreateTab("Config", 9999)
 
@@ -1467,7 +1466,7 @@ function LunoLibrary:CreateWindow(Settings)
         Btn.Text = Text
         Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         Btn.TextSize = 11
-        Btn.Font = Enum.Font.GothamBold
+        Btn.Font = Enum.Font.InterBold
         Btn.Parent = ProfileScroll
 
         local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
