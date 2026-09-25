@@ -1,12 +1,11 @@
 --[[
-    LUNO UI Library v11.0 (Native Core Font Engine & Zero-Bug Guarantee)
+    LUNO UI Library v11.0 (Clean Default Bold Header & Centered Discord Revision)
     Revisions:
-      - Switched to 100% Native Roblox Binary Fonts (Sarpanch & TitilliumWeb).
-      - Fixed blank text bug completely across ALL Mobile & PC Executors.
-      - Removed bullet points (•) from ALL Section Headers globally.
-      - Sleek, anti-mainstream cyber tech typography (0% AI Slop).
-      - Transparent Floating "LUNO" Badge fully functional & draggable.
-      - Full Config & MISC Systems intact with Cross-Executor Support.
+      - Header "LUNO by LUNAR" now uses Roblox Core Default Bold Font (SourceSansBold).
+      - "MORE THAN JUST SCRIPTS." sub-text font preserved as requested.
+      - Discord Button: Removed emoji, enlarged text, centered alignment, Default Bold without outline.
+      - Section Headers remain 100% bullet-free (No dots).
+      - 100% Cross-Executor & Mobile/PC Compatibility Guarantee.
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -161,8 +160,8 @@ function LunoLibrary:Notify(Settings)
     ToastTitle.BackgroundTransparency = 1
     ToastTitle.Text = Title
     ToastTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToastTitle.TextSize = 12
-    ToastTitle.Font = Enum.Font.Sarpanch
+    ToastTitle.TextSize = 13
+    ToastTitle.Font = Enum.Font.SourceSansBold
     ToastTitle.TextXAlignment = Enum.TextXAlignment.Left
     ToastTitle.Parent = Toast
 
@@ -234,7 +233,7 @@ function LunoLibrary:CreateWindow(Settings)
     ResizeHitbox.Text = "◢"
     ResizeHitbox.TextColor3 = Color3.fromRGB(0, 140, 255)
     ResizeHitbox.TextSize = 16
-    ResizeHitbox.Font = Enum.Font.Sarpanch
+    ResizeHitbox.Font = Enum.Font.SourceSansBold
     ResizeHitbox.ZIndex = 30
     ResizeHitbox.Parent = MainFrame
 
@@ -257,7 +256,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- TRANSPARENT FLOATING BADGE (Sarpanch Native Font)
+    -- TRANSPARENT FLOATING BADGE (Default Bold Font)
     ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
@@ -273,8 +272,8 @@ function LunoLibrary:CreateWindow(Settings)
     FloatBtn.BackgroundTransparency = 1
     FloatBtn.Text = "LUNO"
     FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FloatBtn.Font = Enum.Font.Sarpanch
-    FloatBtn.TextSize = 20
+    FloatBtn.Font = Enum.Font.SourceSansBold
+    FloatBtn.TextSize = 22
     FloatBtn.Parent = FloatingPopUp
 
     local FloatTextStroke = Instance.new("UIStroke")
@@ -362,7 +361,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR & HEADER
+    -- LEFT SIDEBAR & HEADER (Default Bold "LUNO by LUNAR")
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name = "LeftSidebar"
@@ -398,8 +397,8 @@ function LunoLibrary:CreateWindow(Settings)
     LogoText.BackgroundTransparency = 1
     LogoText.Text = TitleText
     LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LogoText.TextSize = 18
-    LogoText.Font = Enum.Font.Sarpanch
+    LogoText.TextSize = 20
+    LogoText.Font = Enum.Font.SourceSansBold -- Font Default Bold
     LogoText.TextXAlignment = Enum.TextXAlignment.Left
     LogoText.Parent = LogoHeaderCard
 
@@ -409,22 +408,24 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.BackgroundTransparency = 1
     LogoSubText.Text = SubTitleText
     LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
-    LogoSubText.TextSize = 11
-    LogoSubText.Font = Enum.Font.TitilliumWeb
+    LogoSubText.TextSize = 12
+    LogoSubText.Font = Enum.Font.SourceSansBold -- Font Default Bold
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    -- DISCORD BUTTON
+    ---------------------------------------------------------
+    -- REVISED DISCORD BUTTON (Centered, No Emoji, Default Bold)
+    ---------------------------------------------------------
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
     DiscordBtn.Position = UDim2.new(0, 8, 1, -94)
     DiscordBtn.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
-    DiscordBtn.Text = "   💬 Discord"
+    DiscordBtn.Text = "Discord" -- Dihapus emojinya
     DiscordBtn.TextColor3 = Color3.fromRGB(120, 180, 255)
-    DiscordBtn.Font = Enum.Font.TitilliumWeb
-    DiscordBtn.TextSize = 12
-    DiscordBtn.TextXAlignment = Enum.TextXAlignment.Left
+    DiscordBtn.Font = Enum.Font.SourceSansBold -- Default Bold tanpa outline
+    DiscordBtn.TextSize = 14 -- Ukuran diperbesar sedikit
+    DiscordBtn.TextXAlignment = Enum.TextXAlignment.Center -- Posisi Tengah
     DiscordBtn.Parent = LeftSidebar
 
     local DiscordCorner = Instance.new("UICorner") DiscordCorner.CornerRadius = UDim.new(0, 6) DiscordCorner.Parent = DiscordBtn
@@ -523,8 +524,8 @@ function LunoLibrary:CreateWindow(Settings)
     BannerText.BackgroundTransparency = 1
     BannerText.Text = TitleText .. " " .. SubTitleText
     BannerText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BannerText.TextSize = 18
-    BannerText.Font = Enum.Font.Sarpanch
+    BannerText.TextSize = 20
+    BannerText.Font = Enum.Font.SourceSansBold -- Default Bold
     BannerText.TextXAlignment = Enum.TextXAlignment.Left
     BannerText.Parent = Banner
 
@@ -535,7 +536,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerSubText.Text = "MORE THAN JUST SCRIPTS."
     BannerSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     BannerSubText.TextSize = 11
-    BannerSubText.Font = Enum.Font.TitilliumWeb
+    BannerSubText.Font = Enum.Font.TitilliumWeb -- Font Asli Dipertahankan
     BannerSubText.TextXAlignment = Enum.TextXAlignment.Left
     BannerSubText.Parent = Banner
 
@@ -616,7 +617,7 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
-        -- Section Header (100% Tanpa Titik / Bullet)
+        -- Section Header (100% Tanpa Titik)
         function TabElements:CreateSection(SectionName)
             local SecFrame = Instance.new("Frame")
             SecFrame.Size = UDim2.new(1, -6, 0, 20)
@@ -628,8 +629,8 @@ function LunoLibrary:CreateWindow(Settings)
             SecLbl.BackgroundTransparency = 1
             SecLbl.Text = string.upper(SectionName)
             SecLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
-            SecLbl.TextSize = 13
-            SecLbl.Font = Enum.Font.Sarpanch
+            SecLbl.TextSize = 12
+            SecLbl.Font = Enum.Font.SourceSansBold
             SecLbl.TextXAlignment = Enum.TextXAlignment.Left
             SecLbl.Parent = SecFrame
 
