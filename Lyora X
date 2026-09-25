@@ -1,10 +1,10 @@
 --[[
-    LUNO UI Library v7.0 (Precision Layout & Dynamic Config Edition)
+    LUNO UI Library v7.1 (Config Input Bug Fix Edition)
+    Fixed: Real-time TextBox tracking on every keystroke (No longer requires pressing Enter)
     Features:
-      - Clean Execution Guard (Auto-teardown previous instances)
-      - User Tabs always stay ON TOP; MISC & Config pinned strictly at BOTTOM
-      - Advanced Config System: Custom Typing Name + Dynamic Dropdown Selector + Auto Refresh
-      - Pixel-perfect typography & spacing for Mobile/Emulator/PC
+      - Execution Guard (Auto-teardown previous instances)
+      - User Tabs stay ON TOP; MISC & Config pinned strictly at BOTTOM
+      - Advanced Config System: Real-time Custom Name + Dynamic Dropdown Selector
       - Built-In MISC Features & Mobile Draggable Pop-Up Button
 --]]
 
@@ -178,7 +178,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- Resize 36x36 Corner
+    -- Resize Handle
     local ResizeHitbox = Instance.new("TextButton")
     ResizeHitbox.Name = "ResizeHitbox"
     ResizeHitbox.Size = UDim2.new(0, 36, 0, 36)
@@ -209,7 +209,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- Mobile Draggable Pop-Up Button
+    -- Mobile Draggable Button
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
     FloatingPopUp.Size = UDim2.new(0, 48, 0, 48)
@@ -435,7 +435,7 @@ function LunoLibrary:CreateWindow(Settings)
     BannerSubText.Parent = Banner
 
     ---------------------------------------------------------
-    -- CONTENT CONTAINER & TAB ORDERING SYSTEM
+    -- CONTENT CONTAINER & TAB LOGIC
     ---------------------------------------------------------
     local ContentContainer = Instance.new("Frame")
     ContentContainer.Size = UDim2.new(1, -170, 1, -82)
@@ -496,7 +496,6 @@ function LunoLibrary:CreateWindow(Settings)
         local TabObj = { Button = TabButton, Page = TabPage }
         Tabs[TabName] = TabObj
 
-        -- Open First User-Created Tab By Default
         if not FixedOrder and UserTabCounter == 1 then
             SwitchTab(TabObj)
         end
@@ -821,7 +820,7 @@ function LunoLibrary:CreateWindow(Settings)
             return { Refresh = RefreshOptions }
         end
 
-        -- Input Box
+        -- Input Box (REAL-TIME KEYSTROKE TRACKING FIX)
         function TabElements:CreateInput(Settings)
             local Name = Settings.Title or Settings.Name or "Input"
             local Placeholder = Settings.Placeholder or "Type here..."
@@ -865,8 +864,13 @@ function LunoLibrary:CreateWindow(Settings)
             Box.Font = Enum.Font.Gotham
             Box.Parent = BoxHolder
 
-            Box.FocusLost:Connect(function(enter)
-                if enter then Callback(Box.Text) end
+            -- Real-time text update on every character typed (Fixed Config Save Name Bug)
+            Box:GetPropertyChangedSignal("Text"):Connect(function()
+                Callback(Box.Text)
+            end)
+
+            Box.FocusLost:Connect(function()
+                Callback(Box.Text)
             end)
 
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 12)
@@ -1202,8 +1206,8 @@ function LunoLibrary:CreateWindow(Settings)
 
     ConfigTab:CreateSection("Configuration Manager")
 
-    local TypedConfigName = "default_config"
-    local SelectedConfigName = "default_config"
+    local TypedConfigName = ""
+    local SelectedConfigName = ""
     local ConfigDropdownObj
 
     local function GetSavedConfigNames()
@@ -1223,20 +1227,21 @@ function LunoLibrary:CreateWindow(Settings)
 
     ConfigTab:CreateInput({
         Title = "Custom Config Name",
-        Placeholder = "Type name here...",
+        Placeholder = "Type config name...",
         Callback = function(Text)
-            if Text and #Text > 0 then TypedConfigName = Text end
+            TypedConfigName = Text
         end
     })
 
     ConfigTab:CreateButton({
-        Title = "💾 Save Config (Using Typed Name)",
+        Title = "💾 Save Config (Using Name Above)",
         Callback = function()
+            local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             if writefile then
                 pcall(function()
                     if not isfolder("LunoConfigs") then makefolder("LunoConfigs") end
-                    writefile("LunoConfigs/" .. TypedConfigName .. ".json", HttpService:JSONEncode(LunoLibrary.Flags))
-                    LunoLibrary:Notify({Title = "Config Saved", Content = "Saved: " .. TypedConfigName, Duration = 3})
+                    writefile("LunoConfigs/" .. finalSaveName .. ".json", HttpService:JSONEncode(LunoLibrary.Flags))
+                    LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. finalSaveName, Duration = 3})
                     if ConfigDropdownObj then ConfigDropdownObj.Refresh(GetSavedConfigNames()) end
                 end)
             else
@@ -1248,7 +1253,7 @@ function LunoLibrary:CreateWindow(Settings)
     ConfigTab:CreateSection("Load & Delete Manager")
 
     ConfigDropdownObj = ConfigTab:CreateDropdown({
-        Title = "Select Config File",
+        Title = "Select Saved Config",
         Options = GetSavedConfigNames(),
         Multi = false,
         Callback = function(Sel) SelectedConfigName = Sel end
@@ -1261,10 +1266,10 @@ function LunoLibrary:CreateWindow(Settings)
                 pcall(function()
                     local data = HttpService:JSONDecode(readfile("LunoConfigs/" .. SelectedConfigName .. ".json"))
                     for flag, val in pairs(data) do LunoLibrary.Flags[flag] = val end
-                    LunoLibrary:Notify({Title = "Config Loaded", Content = "Loaded: " .. SelectedConfigName, Duration = 3})
+                    LunoLibrary:Notify({Title = "Config Loaded", Content = "Successfully loaded: " .. SelectedConfigName, Duration = 3})
                 end)
             else
-                LunoLibrary:Notify({Title = "Error", Content = "File not found!", Duration = 3})
+                LunoLibrary:Notify({Title = "Error", Content = "Selected config file not found!", Duration = 3})
             end
         end
     })
