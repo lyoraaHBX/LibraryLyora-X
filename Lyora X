@@ -1,8 +1,9 @@
 --[[
-    LUNO UI Library v11.0 (Final Visual & Color Perfection)
+    LUNO UI Library v11.0 (Transparent Floating Text Badge)
     Revisions:
-      - Left Header Card "LUNO by LUNAR" background now matches Right Banner 100% (No more black card)
-      - Mobile/Tablet Pop-Up Icon changed from circle to sleek badge with text "LUNO" (Non-circular, 100% draggable)
+      - Mobile/Tablet Pop-Up Icon is now 100% Transparent (Text "LUNO" Only)
+      - Full Dragging & Toggle system intact
+      - Left Header Card "LUNO by LUNAR" background matches Right Banner 100%
       - Full Config & MISC Systems intact with 100% Cross-Executor Support
 --]]
 
@@ -254,28 +255,32 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- SLEEK BADGE MOBILE & TABLET FLOATING BUTTON (NON-CIRCULAR)
+    -- TRANSPARENT MOBILE & TABLET FLOATING BUTTON ("LUNO" TEXT ONLY)
     ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
-    FloatingPopUp.Size = UDim2.new(0, 60, 0, 28) -- Sleek Capsule Badge Size
+    FloatingPopUp.Size = UDim2.new(0, 65, 0, 28)
     FloatingPopUp.Position = UDim2.new(0, 15, 0.25, 0)
-    FloatingPopUp.BackgroundColor3 = Color3.fromRGB(15, 22, 38)
+    FloatingPopUp.BackgroundTransparency = 1 -- Completely Transparent Background
     FloatingPopUp.Visible = (DeviceType ~= "PC")
     FloatingPopUp.ZIndex = 999
     FloatingPopUp.Parent = MainScreenGui
-
-    local FloatCorner = Instance.new("UICorner") FloatCorner.CornerRadius = UDim.new(0, 8) FloatCorner.Parent = FloatingPopUp -- Sleek rounded rectangle (Not a circle)
-    local FloatStroke = Instance.new("UIStroke") FloatStroke.Color = Color3.fromRGB(0, 110, 255) FloatStroke.Thickness = 1.2 FloatStroke.Parent = FloatingPopUp
 
     local FloatBtn = Instance.new("TextButton")
     FloatBtn.Size = UDim2.new(1, 0, 1, 0)
     FloatBtn.BackgroundTransparency = 1
     FloatBtn.Text = "LUNO"
     FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FloatBtn.Font = Enum.Font.GothamBold
-    FloatBtn.TextSize = 11
+    FloatBtn.Font = Enum.Font.GothamBlack
+    FloatBtn.TextSize = 13
     FloatBtn.Parent = FloatingPopUp
+
+    -- Subtle Neon Text Outline so text is visible on dark/light backgrounds
+    local FloatTextStroke = Instance.new("UIStroke")
+    FloatTextStroke.Color = Color3.fromRGB(0, 130, 255)
+    FloatTextStroke.Thickness = 1.2
+    FloatTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    FloatTextStroke.Parent = FloatBtn
 
     -- Smooth Dragging Logic for Floating Icon
     local FloatDragging = false
@@ -368,7 +373,7 @@ function LunoLibrary:CreateWindow(Settings)
 
     local SidebarCorner = Instance.new("UICorner") SidebarCorner.CornerRadius = UDim.new(0, 12) SidebarCorner.Parent = LeftSidebar
 
-    -- MATCHING HEADER LOGO CARD (Exact background color and gradient as Banner)
+    -- MATCHING HEADER LOGO CARD
     local LogoHeaderCard = Instance.new("Frame")
     LogoHeaderCard.Name = "LogoHeaderCard"
     LogoHeaderCard.Size = UDim2.new(1, -16, 0, 65)
@@ -403,13 +408,13 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.Position = UDim2.new(0, 12, 0, 34)
     LogoSubText.BackgroundTransparency = 1
     LogoSubText.Text = SubTitleText
-    LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255) -- Matching Neon Cyan
+    LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
     LogoSubText.TextSize = 10
     LogoSubText.Font = Enum.Font.GothamBold
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    -- DISCORD BUTTON (In Sidebar directly ABOVE User Profile Card)
+    -- DISCORD BUTTON
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
@@ -434,7 +439,7 @@ function LunoLibrary:CreateWindow(Settings)
         })
     end)
 
-    -- USER PROFILE CARD (Bottom of Sidebar)
+    -- USER PROFILE CARD
     local UserCard = Instance.new("TextButton")
     UserCard.Size = UDim2.new(1, -16, 0, 48)
     UserCard.Position = UDim2.new(0, 8, 1, -56)
