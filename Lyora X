@@ -1,10 +1,9 @@
 --[[
-    LUNO UI Library v11.0 (Transparent Floating Text Badge)
+    LUNO UI Library v11.0 (Larger Transparent Floating Text)
     Revisions:
-      - Mobile/Tablet Pop-Up Icon is now 100% Transparent (Text "LUNO" Only)
-      - Full Dragging & Toggle system intact
-      - Left Header Card "LUNO by LUNAR" background matches Right Banner 100%
-      - Full Config & MISC Systems intact with 100% Cross-Executor Support
+      - Floating Text "LUNO" size increased for better visibility and easier touch on Mobile/Tablet
+      - 100% Transparent Background with Sleek Neon Text Outline
+      - Full Dragging, Config & MISC Systems intact
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -255,13 +254,13 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- TRANSPARENT MOBILE & TABLET FLOATING BUTTON ("LUNO" TEXT ONLY)
+    -- TRANSPARENT MOBILE & TABLET FLOATING BUTTON (LARGER "LUNO" TEXT)
     ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
-    FloatingPopUp.Size = UDim2.new(0, 65, 0, 28)
+    FloatingPopUp.Size = UDim2.new(0, 90, 0, 36) -- Diperbesar agar area sentuh luas
     FloatingPopUp.Position = UDim2.new(0, 15, 0.25, 0)
-    FloatingPopUp.BackgroundTransparency = 1 -- Completely Transparent Background
+    FloatingPopUp.BackgroundTransparency = 1 -- 100% Transparan
     FloatingPopUp.Visible = (DeviceType ~= "PC")
     FloatingPopUp.ZIndex = 999
     FloatingPopUp.Parent = MainScreenGui
@@ -272,13 +271,13 @@ function LunoLibrary:CreateWindow(Settings)
     FloatBtn.Text = "LUNO"
     FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     FloatBtn.Font = Enum.Font.GothamBlack
-    FloatBtn.TextSize = 13
+    FloatBtn.TextSize = 19 -- Ukuran teks diperbesar signifikan
     FloatBtn.Parent = FloatingPopUp
 
-    -- Subtle Neon Text Outline so text is visible on dark/light backgrounds
+    -- Neon Outline tipis untuk memperjelas teks di background terang/gelap
     local FloatTextStroke = Instance.new("UIStroke")
     FloatTextStroke.Color = Color3.fromRGB(0, 130, 255)
-    FloatTextStroke.Thickness = 1.2
+    FloatTextStroke.Thickness = 1.8
     FloatTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
     FloatTextStroke.Parent = FloatBtn
 
