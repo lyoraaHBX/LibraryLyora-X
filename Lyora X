@@ -1,10 +1,11 @@
 --[[
-    LUNO UI Library v11.0 (Clean Minimalist Edition - Emoji Free)
+    LUNO UI Library v11.0 (Fixed Smooth Fly Engine & Zero Emoji Edition)
     Revisions:
-      - 100% Emoji Removal across all UI components for a clean & modern aesthetic.
-      - Preserved Header "LUNO by LUNAR" Default Bold Font (SourceSansBold).
-      - Preserved Sub-Text "MORE THAN JUST SCRIPTS." & Centered Discord button.
-      - 100% Native Core Fonts used (Zero blank text bug on any Executor).
+      - Fly Hack fixed completely using smooth BodyVelocity & BodyGyro physics.
+      - Keybind F removed: Fly is now 100% controlled via simple On/Off Toggle.
+      - Full Mobile & PC joystick support for flying in 3D camera direction.
+      - Added "Fly Speed" slider in MISC tab.
+      - 100% Emoji Free & Clean Minimalist UI.
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -476,7 +477,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.Size = UDim2.new(1, -48, 0, 12)
     UserGameLbl.Position = UDim2.new(0, 44, 0, 24)
     UserGameLbl.BackgroundTransparency = 1
-    UserGameLbl.Text = CurrentGameName -- Tanpa Emoji Game
+    UserGameLbl.Text = CurrentGameName
     UserGameLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
     UserGameLbl.TextSize = 10
     UserGameLbl.Font = Enum.Font.TitilliumWeb
@@ -614,7 +615,7 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
-        -- Section Header (Clean Header)
+        -- Section Header
         function TabElements:CreateSection(SectionName)
             local SecFrame = Instance.new("Frame")
             SecFrame.Size = UDim2.new(1, -6, 0, 20)
@@ -998,7 +999,7 @@ function LunoLibrary:CreateWindow(Settings)
             SearchBox.Size = UDim2.new(1, -12, 1, 0)
             SearchBox.Position = UDim2.new(0, 8, 0, 0)
             SearchBox.BackgroundTransparency = 1
-            SearchBox.PlaceholderText = "Search script..." -- Tanpa Emoji
+            SearchBox.PlaceholderText = "Search script..."
             SearchBox.PlaceholderColor3 = Color3.fromRGB(90, 110, 140)
             SearchBox.Text = ""
             SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1074,7 +1075,7 @@ function LunoLibrary:CreateWindow(Settings)
                 CopyBtn.Size = UDim2.new(0, 65, 0, 26)
                 CopyBtn.Position = UDim2.new(1, -73, 0.5, -13)
                 CopyBtn.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
-                CopyBtn.Text = "Execute" -- Tanpa Emoji
+                CopyBtn.Text = "Execute"
                 CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 CopyBtn.TextSize = 11
                 CopyBtn.Font = Enum.Font.TitilliumWeb
@@ -1084,7 +1085,7 @@ function LunoLibrary:CreateWindow(Settings)
 
                 CopyBtn.MouseButton1Click:Connect(function()
                     Callback()
-                    CopyBtn.Text = "Done" -- Tanpa Emoji
+                    CopyBtn.Text = "Done"
                     task.wait(1)
                     CopyBtn.Text = "Execute"
                 end)
@@ -1134,35 +1135,110 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
+    ---------------------------------------------------------
+    -- REVISED SMOOTH 3D FLY SYSTEM (PURE TOGGLE - NO KEYBIND)
+    ---------------------------------------------------------
     local Flying = false
     local FlySpeed = 50
-    local FlyKey = Enum.KeyCode.F
+
+    local function StopFlying()
+        if LocalPlayer.Character then
+            local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                if hrp:FindFirstChild("LunoFlyBV") then hrp.LunoFlyBV:Destroy() end
+                if hrp:FindFirstChild("LunoFlyBG") then hrp.LunoFlyBG:Destroy() end
+            end
+            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.PlatformStand = false
+            end
+        end
+    end
 
     RegisterConnection(RunService.RenderStepped:Connect(function()
-        if Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
             local hrp = LocalPlayer.Character.HumanoidRootPart
-            local moveDir = Vector3.new()
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + Camera.CFrame.RightVector end
-            hrp.Velocity = Vector3.new(0, 0.1, 0)
-            hrp.CFrame = hrp.CFrame + (moveDir * (FlySpeed / 50))
-        end
-    end))
+            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            
+            hum.PlatformStand = true
+            
+            local bv = hrp:FindFirstChild("LunoFlyBV")
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "LunoFlyBV"
+                bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+                bv.Parent = hrp
+            end
+            
+            local bg = hrp:FindFirstChild("LunoFlyBG")
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "LunoFlyBG"
+                bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+                bg.P = 9e4
+                bg.Parent = hrp
+            end
+            
+            bg.CFrame = Camera.CFrame
+            
+            local moveVector = Vector3.zero
+            local camCF = Camera.CFrame
+            
+            if hum.MoveDirection.Magnitude > 0 then
+                local moveDir = hum.MoveDirection
+                local forwardDir = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
+                local rightDir = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
+                
+                local dotForward = moveDir:Dot(forwardDir)
+                local dotRight = moveDir:Dot(rightDir)
+                
+                if tostring(dotForward) == "nan" then dotForward = 0 end
+                if tostring(dotRight) == "nan" then dotRight = 0 end
 
-    RegisterConnection(UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == FlyKey then
-            Flying = not Flying
-            LunoLibrary:Notify({Title = "Fly Hack", Content = Flying and "Fly Enabled" or "Fly Disabled", Duration = 2})
+                moveVector = (camCF.LookVector * dotForward) + (camCF.RightVector * dotRight)
+            end
+
+            -- Controls for PC (Space to go Up, Shift/Q to go Down)
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveVector = moveVector + Vector3.new(0, 1, 0)
+            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
+                moveVector = moveVector + Vector3.new(0, 0.5, 0)
+            elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+                moveVector = moveVector - Vector3.new(0, 0.5, 0)
+            end
+
+            if moveVector.Magnitude > 0 then
+                moveVector = moveVector.Unit * FlySpeed
+            end
+
+            bv.Velocity = moveVector
+        else
+            StopFlying()
         end
     end))
 
     MiscTab:CreateToggle({
-        Title = "Fly Hack (Press " .. FlyKey.Name .. ")",
+        Title = "Fly Hack",
         Default = false,
         Flag = "FlyHackState",
-        Callback = function(State) Flying = State end
+        Callback = function(State)
+            Flying = State
+            if not State then
+                StopFlying()
+            end
+        end
+    })
+
+    MiscTab:CreateSlider({
+        Title = "Fly Speed",
+        Min = 10,
+        Max = 300,
+        Default = 50,
+        Suffix = " spd",
+        Flag = "FlySpeedValue",
+        Callback = function(Value)
+            FlySpeed = Value
+        end
     })
 
     MiscTab:CreateSection("Visual ESP Elements")
@@ -1296,7 +1372,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     MiscTab:CreateButton({
-        Title = "100% Anti-Lag FPS Booster", -- Tanpa Emoji
+        Title = "100% Anti-Lag FPS Booster",
         Callback = function()
             pcall(function()
                 Lighting.GlobalShadows = false
@@ -1352,7 +1428,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "Save Config (Using Name Above)", -- Tanpa Emoji
+        Title = "Save Config (Using Name Above)",
         Callback = function()
             local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             SafeMakeFolder("LunoConfigs")
@@ -1379,7 +1455,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "Load Selected Config", -- Tanpa Emoji
+        Title = "Load Selected Config",
         Callback = function()
             local targetFile = SelectedConfigName
             if not targetFile or targetFile == "" or targetFile == "No Saved Configs" then
@@ -1412,7 +1488,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "Delete Selected Config", -- Tanpa Emoji
+        Title = "Delete Selected Config",
         Callback = function()
             if SelectedConfigName ~= "" and SelectedConfigName ~= "No Saved Configs" then
                 SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
@@ -1425,7 +1501,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "Refresh Config List", -- Tanpa Emoji
+        Title = "Refresh Config List",
         Callback = function()
             if ConfigDropdownObj then
                 local newList = GetSavedConfigNames()
@@ -1474,7 +1550,6 @@ function LunoLibrary:CreateWindow(Settings)
         ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 8)
     end
 
-    -- Semua Emojis Dihapus Total Dari Profile Page
     CreateProfileItem("User ID: " .. tostring(LocalPlayer.UserId), function() RealSetClipboard(tostring(LocalPlayer.UserId)) end)
     CreateProfileItem("Game: " .. CurrentGameName, nil)
     CreateProfileItem("Job ID: " .. tostring(game.JobId), function() RealSetClipboard(tostring(game.JobId)) end)
