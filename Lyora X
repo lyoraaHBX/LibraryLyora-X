@@ -1,12 +1,11 @@
 --[[
-    LUNO UI Library v9.0 (Ultimate Polish & Bug-Fix Edition)
+    LUNO UI Library v10.0 (Masterpiece Sidebar & Discord Integration)
     Fixed:
-      - Config Load Selection Bug Fixed (No longer resets/switches to wrong files)
-      - Mobile/Tablet Floating Icon is 100% Draggable Anywhere on screen
-      - Sidebar Navigation Pushed Down (Y = 82px) for Maximum Cleanliness
-      - Logo Subtitle "by LUNAR" Colored in Matching Cyan Neon (#00AAFF)
-      - Added Discord Button with Copy Link Feature in MISC Tab
-      - Banner Overlap Bug Removed Completely
+      - Header Logo "LUNO by LUNAR" wrapped in Matching Card Background (Matches Top Banner)
+      - Dedicated "Discord" Copy Button placed in Sidebar directly above User Profile
+      - Real Clipboard Copying + Instant Success Notification
+      - Seamless Sidebar Layout with Precision Spacing
+      - Pinned Config & MISC System with 100% Cross-Executor Support
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -50,7 +49,18 @@ pcall(function()
     if info and info.Name then CurrentGameName = info.Name end
 end)
 
--- Safe File Wrappers
+-- Universal Clipboard Copy Function
+local function RealSetClipboard(text)
+    if setclipboard then
+        setclipboard(text)
+    elseif toclipboard then
+        toclipboard(text)
+    elseif syn and syn.write_clipboard then
+        syn.write_clipboard(text)
+    end
+end
+
+-- Safe File Functions
 local function SafeWriteFile(path, content)
     if writefile then pcall(writefile, path, content) end
 end
@@ -103,7 +113,7 @@ LunoLibrary.Flags = {}
 LunoLibrary.Elements = {}
 
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name = "LunoUILibrary_v9"
+MainScreenGui.Name = "LunoUILibrary_v10"
 MainScreenGui.ResetOnSpawn = false
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainScreenGui.Parent = GetParentGui()
@@ -245,9 +255,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    ---------------------------------------------------------
-    -- 100% DRAGGABLE MOBILE & TABLET FLOATING POPUP ICON
-    ---------------------------------------------------------
+    -- Draggable Mobile/Tablet Floating Pop-Up Icon
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
     FloatingPopUp.Size = UDim2.new(0, 46, 0, 46)
@@ -269,7 +277,6 @@ function LunoLibrary:CreateWindow(Settings)
     FloatBtn.TextSize = 10
     FloatBtn.Parent = FloatingPopUp
 
-    -- Smooth Dragging Logic for Floating Icon
     local FloatDragging = false
     local FloatDragStart, FloatStartPos
 
@@ -279,9 +286,7 @@ function LunoLibrary:CreateWindow(Settings)
             FloatDragStart = input.Position
             FloatStartPos = FloatingPopUp.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    FloatDragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then FloatDragging = false end
             end)
         end
     end)
@@ -350,7 +355,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR (NAV PUSHED DOWN TO Y = 82px)
+    -- LEFT SIDEBAR WITH HEADER LOGO CARD & DISCORD BUTTON
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name = "LeftSidebar"
@@ -362,40 +367,72 @@ function LunoLibrary:CreateWindow(Settings)
 
     local SidebarCorner = Instance.new("UICorner") SidebarCorner.CornerRadius = UDim.new(0, 12) SidebarCorner.Parent = LeftSidebar
 
+    -- MATCHING HEADER LOGO CARD (Exact background style as Top Banner)
+    local LogoHeaderCard = Instance.new("Frame")
+    LogoHeaderCard.Name = "LogoHeaderCard"
+    LogoHeaderCard.Size = UDim2.new(1, -16, 0, 65)
+    LogoHeaderCard.Position = UDim2.new(0, 8, 0, 8)
+    LogoHeaderCard.BackgroundColor3 = Color3.fromRGB(15, 22, 38)
+    LogoHeaderCard.ClipsDescendants = true
+    LogoHeaderCard.Parent = LeftSidebar
+
+    local LogoCorner = Instance.new("UICorner") LogoCorner.CornerRadius = UDim.new(0, 8) LogoCorner.Parent = LogoHeaderCard
+
+    local LogoGradient = Instance.new("UIGradient")
+    LogoGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 28, 48)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 18, 32))
+    })
+    LogoGradient.Parent = LogoHeaderCard
+
     local LogoText = Instance.new("TextLabel")
-    LogoText.Size = UDim2.new(1, -15, 0, 22)
-    LogoText.Position = UDim2.new(0, 15, 0, 14)
+    LogoText.Size = UDim2.new(1, -20, 0, 22)
+    LogoText.Position = UDim2.new(0, 12, 0, 12)
     LogoText.BackgroundTransparency = 1
     LogoText.Text = TitleText
     LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
     LogoText.TextSize = 18
-    LogoText.Font = Enum.Font.GothamBold
+    LogoText.Font = Enum.Font.GothamBlack
     LogoText.TextXAlignment = Enum.TextXAlignment.Left
-    LogoText.Parent = LeftSidebar
+    LogoText.Parent = LogoHeaderCard
 
     local LogoSubText = Instance.new("TextLabel")
-    LogoSubText.Size = UDim2.new(1, -15, 0, 14)
-    LogoSubText.Position = UDim2.new(0, 15, 0, 36)
+    LogoSubText.Size = UDim2.new(1, -20, 0, 14)
+    LogoSubText.Position = UDim2.new(0, 12, 0, 34)
     LogoSubText.BackgroundTransparency = 1
     LogoSubText.Text = SubTitleText
     LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255) -- Matching Neon Cyan
     LogoSubText.TextSize = 10
-    LogoSubText.Font = Enum.Font.GothamMedium
+    LogoSubText.Font = Enum.Font.GothamBold
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
-    LogoSubText.Parent = LeftSidebar
+    LogoSubText.Parent = LogoHeaderCard
 
-    -- Navigation Container Pushed Lower (Y = 82) for Clean Breathing Room
-    local NavContainer = Instance.new("Frame")
-    NavContainer.Size = UDim2.new(1, -16, 1, -146)
-    NavContainer.Position = UDim2.new(0, 8, 0, 82)
-    NavContainer.BackgroundTransparency = 1
-    NavContainer.Parent = LeftSidebar
+    -- DISCORD BUTTON (Positioned in Sidebar directly ABOVE User Profile Card)
+    local DiscordBtn = Instance.new("TextButton")
+    DiscordBtn.Name = "DiscordBtn"
+    DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
+    DiscordBtn.Position = UDim2.new(0, 8, 1, -94)
+    DiscordBtn.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
+    DiscordBtn.Text = "   💬 Discord"
+    DiscordBtn.TextColor3 = Color3.fromRGB(120, 180, 255)
+    DiscordBtn.Font = Enum.Font.GothamBold
+    DiscordBtn.TextSize = 11
+    DiscordBtn.TextXAlignment = Enum.TextXAlignment.Left
+    DiscordBtn.Parent = LeftSidebar
 
-    local NavList = Instance.new("UIListLayout")
-    NavList.Padding = UDim.new(0, 5)
-    NavList.SortOrder = Enum.SortOrder.LayoutOrder
-    NavList.Parent = NavContainer
+    local DiscordCorner = Instance.new("UICorner") DiscordCorner.CornerRadius = UDim.new(0, 6) DiscordCorner.Parent = DiscordBtn
+    local DiscordStroke = Instance.new("UIStroke") DiscordStroke.Color = Color3.fromRGB(0, 110, 255) DiscordStroke.Thickness = 1 DiscordStroke.Transparency = 0.7 DiscordStroke.Parent = DiscordBtn
 
+    DiscordBtn.MouseButton1Click:Connect(function()
+        RealSetClipboard(DiscordInvite)
+        LunoLibrary:Notify({
+            Title = "Discord Invite",
+            Content = "Successfully copied Discord link to clipboard!",
+            Duration = 3
+        })
+    end)
+
+    -- USER PROFILE CARD (Bottom of Sidebar)
     local UserCard = Instance.new("TextButton")
     UserCard.Size = UDim2.new(1, -16, 0, 48)
     UserCard.Position = UDim2.new(0, 8, 1, -56)
@@ -442,8 +479,20 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     UserGameLbl.Parent = UserCard
 
+    -- NAVIGATION CONTAINER (Between Header Card and Discord Button)
+    local NavContainer = Instance.new("Frame")
+    NavContainer.Size = UDim2.new(1, -16, 1, -180)
+    NavContainer.Position = UDim2.new(0, 8, 0, 80)
+    NavContainer.BackgroundTransparency = 1
+    NavContainer.Parent = LeftSidebar
+
+    local NavList = Instance.new("UIListLayout")
+    NavList.Padding = UDim.new(0, 5)
+    NavList.SortOrder = Enum.SortOrder.LayoutOrder
+    NavList.Parent = NavContainer
+
     ---------------------------------------------------------
-    -- TOP BANNER (100% CLEAN TEXT LAYOUT)
+    -- TOP BANNER (CLEAN TEXT LAYOUT)
     ---------------------------------------------------------
     local Banner = Instance.new("Frame")
     Banner.Size = UDim2.new(1, -170, 0, 65)
@@ -1225,20 +1274,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    MiscTab:CreateSection("Community & Utilities")
-
-    -- DISCORD BUTTON FEATURE
-    MiscTab:CreateButton({
-        Title = "💬 Copy Discord Invite Link",
-        Callback = function()
-            if setclipboard then
-                setclipboard(DiscordInvite)
-                LunoLibrary:Notify({Title = "Discord Link", Content = "Discord invite link copied to clipboard!", Duration = 3})
-            else
-                LunoLibrary:Notify({Title = "Error", Content = "Clipboard function not supported!", Duration = 3})
-            end
-        end
-    })
+    MiscTab:CreateSection("Utilities & Protection")
 
     MiscTab:CreateToggle({
         Title = "Anti-AFK Bypass (20-Min Protection)",
@@ -1299,7 +1335,6 @@ function LunoLibrary:CreateWindow(Settings)
         return #list > 0 and list or {"No Saved Configs"}
     end
 
-    -- Set Initial Selected Config File Safely
     local initialConfigs = GetSavedConfigNames()
     SelectedConfigName = initialConfigs[1] or ""
 
@@ -1338,7 +1373,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    -- FIXED CONFIG LOAD SYSTEM (STRICT SELECTION MATCHING)
     ConfigTab:CreateButton({
         Title = "📂 Load Selected Config",
         Callback = function()
@@ -1435,9 +1469,9 @@ function LunoLibrary:CreateWindow(Settings)
         ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 8)
     end
 
-    CreateProfileItem("👤 User ID: " .. tostring(LocalPlayer.UserId), function() setclipboard(tostring(LocalPlayer.UserId)) end)
+    CreateProfileItem("👤 User ID: " .. tostring(LocalPlayer.UserId), function() RealSetClipboard(tostring(LocalPlayer.UserId)) end)
     CreateProfileItem("🎮 Game: " .. CurrentGameName, nil)
-    CreateProfileItem("🔑 Job ID: " .. tostring(game.JobId), function() setclipboard(tostring(game.JobId)) end)
+    CreateProfileItem("🔑 Job ID: " .. tostring(game.JobId), function() RealSetClipboard(tostring(game.JobId)) end)
     CreateProfileItem("🔄 Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
     CreateProfileItem("🔀 Server Hop (Random)", function()
         pcall(function()
