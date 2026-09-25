@@ -1,14 +1,17 @@
 --[[
-    LUNO UI Library v3.0 (Redesign Edition)
+    LUNO UI Library v4.0 (Pro Polish & Precision Edition)
     Theme: LUNO Cyber Modern Dark
-    Features: 100% Clean UI (No White Boxes), macOS Red/Yellow Window Dots, 
-              User Headshot Avatar, Built-in Profile & Server Hop Tab,
-              Device Detection, Resizable Corner Handle.
+    Revisions:
+      - Fixed Sidebar Sharp Corners & Visual Alignment
+      - User Card in Sidebar now shows Real-time Game Name
+      - Click User Card to open Profile & Server Hop Page (Tab Removed from Menu)
+      - Enlarged Hitbox Resize Corner (◢) for Easy Emulator / Mobile Dragging
 --]]
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local TeleportService = game:GetService("TeleportService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -27,7 +30,16 @@ if IsTouch and not IsKeyboard then
     DeviceType = (ViewportSize.X < 800) and "Mobile" or "Tablet"
 end
 
--- Get Protect GUI
+-- Detect Current Game Name
+local CurrentGameName = "Roblox Game"
+pcall(function()
+    local info = MarketplaceService:GetProductInfo(game.PlaceId)
+    if info and info.Name then
+        CurrentGameName = info.Name
+    end
+end)
+
+-- Protect GUI Function
 local function GetParentGui()
     if gethui then
         return gethui()
@@ -51,7 +63,7 @@ function LunoLibrary:CreateWindow(Settings)
     local SubTitleText = Settings.SubTitle or "by LUNAR"
     
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "LunoUILibrary_v3"
+    ScreenGui.Name = "LunoUILibrary_v4"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.Parent = GetParentGui()
@@ -70,7 +82,7 @@ function LunoLibrary:CreateWindow(Settings)
     MainFrame.Parent = ScreenGui
 
     local MainCorner = Instance.new("UICorner")
-    MainCorner.CornerRadius = UDim.new(0, 10)
+    MainCorner.CornerRadius = UDim.new(0, 12)
     MainCorner.Parent = MainFrame
 
     local MainStroke = Instance.new("UIStroke")
@@ -106,25 +118,26 @@ function LunoLibrary:CreateWindow(Settings)
     end)
 
     ---------------------------------------------------------
-    -- RESIZE HANDLE (◢)
+    -- EASY EMULATOR / TOUCH RESIZE HANDLE (36x36 Hitbox)
     ---------------------------------------------------------
-    local ResizeHandle = Instance.new("TextLabel")
-    ResizeHandle.Size = UDim2.new(0, 16, 0, 16)
-    ResizeHandle.Position = UDim2.new(1, -16, 1, -16)
-    ResizeHandle.BackgroundTransparency = 1
-    ResizeHandle.Text = "◢"
-    ResizeHandle.TextColor3 = Color3.fromRGB(0, 140, 255)
-    ResizeHandle.TextSize = 12
-    ResizeHandle.Font = Enum.Font.GothamBold
-    ResizeHandle.ZIndex = 20
-    ResizeHandle.Parent = MainFrame
+    local ResizeHitbox = Instance.new("TextButton")
+    ResizeHitbox.Name = "ResizeHitbox"
+    ResizeHitbox.Size = UDim2.new(0, 36, 0, 36)
+    ResizeHitbox.Position = UDim2.new(1, -36, 1, -36)
+    ResizeHitbox.BackgroundTransparency = 1
+    ResizeHitbox.Text = "◢"
+    ResizeHitbox.TextColor3 = Color3.fromRGB(0, 140, 255)
+    ResizeHitbox.TextSize = 16
+    ResizeHitbox.Font = Enum.Font.GothamBold
+    ResizeHitbox.ZIndex = 30
+    ResizeHitbox.Parent = MainFrame
 
     local Resizing = false
     local ResizeStart, StartSize
     local MinSize = Vector2.new(550, 350)
     local MaxSize = Vector2.new(ViewportSize.X - 20, ViewportSize.Y - 20)
 
-    ResizeHandle.InputBegan:Connect(function(input)
+    ResizeHitbox.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Resizing = true
             ResizeStart = input.Position
@@ -134,6 +147,7 @@ function LunoLibrary:CreateWindow(Settings)
             end)
         end
     end)
+
     UserInputService.InputChanged:Connect(function(input)
         if Resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - ResizeStart
@@ -142,7 +156,7 @@ function LunoLibrary:CreateWindow(Settings)
     end)
 
     ---------------------------------------------------------
-    -- macOS STYLE WINDOW DOTS (Red Close, Yellow Minimize)
+    -- macOS WINDOW CONTROL DOTS (Yellow = Min, Red = Close)
     ---------------------------------------------------------
     local Controls = Instance.new("Frame")
     Controls.Size = UDim2.new(0, 45, 0, 15)
@@ -154,7 +168,7 @@ function LunoLibrary:CreateWindow(Settings)
     local MinDot = Instance.new("TextButton")
     MinDot.Size = UDim2.new(0, 13, 0, 13)
     MinDot.Position = UDim2.new(0, 0, 0, 0)
-    MinDot.BackgroundColor3 = Color3.fromRGB(255, 189, 46) -- Yellow
+    MinDot.BackgroundColor3 = Color3.fromRGB(255, 189, 46)
     MinDot.Text = ""
     MinDot.Parent = Controls
 
@@ -165,7 +179,7 @@ function LunoLibrary:CreateWindow(Settings)
     local CloseDot = Instance.new("TextButton")
     CloseDot.Size = UDim2.new(0, 13, 0, 13)
     CloseDot.Position = UDim2.new(0, 20, 0, 0)
-    CloseDot.BackgroundColor3 = Color3.fromRGB(255, 95, 86) -- Red
+    CloseDot.BackgroundColor3 = Color3.fromRGB(255, 95, 86)
     CloseDot.Text = ""
     CloseDot.Parent = Controls
 
@@ -173,7 +187,7 @@ function LunoLibrary:CreateWindow(Settings)
     CloseCorner.CornerRadius = UDim.new(1, 0)
     CloseCorner.Parent = CloseDot
 
-    -- Hide/Show Logic
+    -- Toggle Logic
     local IsVisible = true
     local LastSize = MainFrame.Size
 
@@ -216,13 +230,19 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR & USER CARD WITH HEADSHOT AVATAR
+    -- LEFT SIDEBAR (SEAMLESS CORNERS & RENDER)
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
+    LeftSidebar.Name = "LeftSidebar"
     LeftSidebar.Size = UDim2.new(0, 160, 1, 0)
-    LeftSidebar.BackgroundColor3 = Color3.fromRGB(13, 18, 29)
+    LeftSidebar.BackgroundColor3 = Color3.fromRGB(12, 17, 28)
     LeftSidebar.BorderSizePixel = 0
+    LeftSidebar.ClipsDescendants = true
     LeftSidebar.Parent = MainFrame
+
+    local SidebarCorner = Instance.new("UICorner")
+    SidebarCorner.CornerRadius = UDim.new(0, 12)
+    SidebarCorner.Parent = LeftSidebar
 
     local LogoFrame = Instance.new("Frame")
     LogoFrame.Size = UDim2.new(1, 0, 0, 50)
@@ -262,7 +282,7 @@ function LunoLibrary:CreateWindow(Settings)
     NavList.SortOrder = Enum.SortOrder.LayoutOrder
     NavList.Parent = NavContainer
 
-    -- User Card Bottom Left
+    -- USER SIDEBAR CARD (SHOWS GAME NAME & TRIGGERS PROFILE VIEW)
     local UserCard = Instance.new("TextButton")
     UserCard.Size = UDim2.new(1, -16, 0, 48)
     UserCard.Position = UDim2.new(0, 8, 1, -56)
@@ -281,7 +301,6 @@ function LunoLibrary:CreateWindow(Settings)
     UserStroke.Transparency = 0.6
     UserStroke.Parent = UserCard
 
-    -- Fetch Avatar Headshot
     local UserAvatar = Instance.new("ImageLabel")
     UserAvatar.Size = UDim2.new(0, 32, 0, 32)
     UserAvatar.Position = UDim2.new(0, 8, 0.5, -16)
@@ -298,8 +317,8 @@ function LunoLibrary:CreateWindow(Settings)
     end)
 
     local UsernameLbl = Instance.new("TextLabel")
-    UsernameLbl.Size = UDim2.new(1, -50, 0, 14)
-    UsernameLbl.Position = UDim2.new(0, 46, 0, 9)
+    UsernameLbl.Size = UDim2.new(1, -48, 0, 14)
+    UsernameLbl.Position = UDim2.new(0, 44, 0, 9)
     UsernameLbl.BackgroundTransparency = 1
     UsernameLbl.Text = LocalPlayer.DisplayName
     UsernameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -309,17 +328,17 @@ function LunoLibrary:CreateWindow(Settings)
     UsernameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     UsernameLbl.Parent = UserCard
 
-    local UserTagLbl = Instance.new("TextLabel")
-    UserTagLbl.Size = UDim2.new(1, -50, 0, 12)
-    UserTagLbl.Position = UDim2.new(0, 46, 0, 24)
-    UserTagLbl.BackgroundTransparency = 1
-    UserTagLbl.Text = "@" .. LocalPlayer.Name
-    UserTagLbl.TextColor3 = Color3.fromRGB(100, 130, 170)
-    UserTagLbl.TextSize = 9
-    UserTagLbl.Font = Enum.Font.Gotham
-    UserTagLbl.TextXAlignment = Enum.TextXAlignment.Left
-    UserTagLbl.TextTruncate = Enum.TextTruncate.AtEnd
-    UserTagLbl.Parent = UserCard
+    local UserGameLbl = Instance.new("TextLabel")
+    UserGameLbl.Size = UDim2.new(1, -48, 0, 12)
+    UserGameLbl.Position = UDim2.new(0, 44, 0, 24)
+    UserGameLbl.BackgroundTransparency = 1
+    UserGameLbl.Text = "🎮 " .. CurrentGameName
+    UserGameLbl.TextColor3 = Color3.fromRGB(0, 180, 255)
+    UserGameLbl.TextSize = 9
+    UserGameLbl.Font = Enum.Font.GothamMedium
+    UserGameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    UserGameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+    UserGameLbl.Parent = UserCard
 
     ---------------------------------------------------------
     -- TOP BANNER
@@ -379,13 +398,17 @@ function LunoLibrary:CreateWindow(Settings)
 
     local function SwitchTab(TargetTab)
         for _, tab in pairs(Tabs) do
-            tab.Button.BackgroundTransparency = 1
-            tab.Button.TextColor3 = Color3.fromRGB(130, 150, 180)
+            if tab.Button then
+                tab.Button.BackgroundTransparency = 1
+                tab.Button.TextColor3 = Color3.fromRGB(130, 150, 180)
+            end
             tab.Page.Visible = false
         end
-        TargetTab.Button.BackgroundTransparency = 0
-        TargetTab.Button.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
-        TargetTab.Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        if TargetTab.Button then
+            TargetTab.Button.BackgroundTransparency = 0
+            TargetTab.Button.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+            TargetTab.Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
         TargetTab.Page.Visible = true
         ActiveTab = TargetTab
     end
@@ -425,7 +448,7 @@ function LunoLibrary:CreateWindow(Settings)
 
         local TabElements = {}
 
-        -- Script List Card Builder
+        -- Script List System
         function TabElements:CreateScriptList()
             local SearchFrame = Instance.new("Frame")
             SearchFrame.Size = UDim2.new(1, -10, 0, 28)
@@ -440,7 +463,7 @@ function LunoLibrary:CreateWindow(Settings)
             SearchBox.Size = UDim2.new(1, -12, 1, 0)
             SearchBox.Position = UDim2.new(0, 8, 0, 0)
             SearchBox.BackgroundTransparency = 1
-            SearchBox.PlaceholderText = "🔍 Search script name..."
+            SearchBox.PlaceholderText = "🔍 Search script..."
             SearchBox.PlaceholderColor3 = Color3.fromRGB(90, 110, 140)
             SearchBox.Text = ""
             SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -547,7 +570,7 @@ function LunoLibrary:CreateWindow(Settings)
             return ScriptListObj
         end
 
-        -- Standard Controls Scroll
+        -- Standard Controls
         local ScrollElements = Instance.new("ScrollingFrame")
         ScrollElements.Size = UDim2.new(1, -10, 1, 0)
         ScrollElements.BackgroundTransparency = 1
@@ -561,7 +584,6 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
-        -- Button Element
         function TabElements:CreateButton(Name, Callback)
             Callback = Callback or function() end
             local Btn = Instance.new("TextButton")
@@ -581,7 +603,6 @@ function LunoLibrary:CreateWindow(Settings)
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 10)
         end
 
-        -- Toggle Element
         function TabElements:CreateToggle(Name, Default, Callback)
             local Toggled = Default or false
             Callback = Callback or function() end
@@ -642,7 +663,6 @@ function LunoLibrary:CreateWindow(Settings)
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 10)
         end
 
-        -- Slider Element
         function TabElements:CreateSlider(Name, Min, Max, Default, Callback)
             Default = math.clamp(Default or Min, Min, Max)
             Callback = Callback or function() end
@@ -730,34 +750,62 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     ---------------------------------------------------------
-    -- BUILT-IN USER PROFILE & SERVER UTILITIES TAB
+    -- HIDDEN PROFILE & SERVER PAGE (ACCESSED VIA USER CARD)
     ---------------------------------------------------------
-    local ProfileTab = LunoLibrary:CreateTab("Profile & Server")
+    local ProfilePage = Instance.new("Frame")
+    ProfilePage.Size = UDim2.new(1, 0, 1, 0)
+    ProfilePage.BackgroundTransparency = 1
+    ProfilePage.Visible = false
+    ProfilePage.Parent = ContentContainer
 
-    -- Open Profile Tab when clicking user sidebar card
+    local ProfileTabObj = { Button = nil, Page = ProfilePage }
+    Tabs["__UserProfile__"] = ProfileTabObj
+
+    -- Trigger profile view on clicking User Card in Sidebar
     UserCard.MouseButton1Click:Connect(function()
-        SwitchTab(Tabs["Profile & Server"])
+        SwitchTab(ProfileTabObj)
     end)
 
-    ProfileTab:CreateButton("👤 User ID: " .. tostring(LocalPlayer.UserId), function()
-        setclipboard(tostring(LocalPlayer.UserId))
-    end)
+    local ProfileScroll = Instance.new("ScrollingFrame")
+    ProfileScroll.Size = UDim2.new(1, -10, 1, 0)
+    ProfileScroll.BackgroundTransparency = 1
+    ProfileScroll.BorderSizePixel = 0
+    ProfileScroll.ScrollBarThickness = 3
+    ProfileScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
+    ProfileScroll.Parent = ProfilePage
 
-    ProfileTab:CreateButton("🎮 Place ID: " .. tostring(game.PlaceId), function()
-        setclipboard(tostring(game.PlaceId))
-    end)
+    local ProfileLayout = Instance.new("UIListLayout")
+    ProfileLayout.Padding = UDim.new(0, 6)
+    ProfileLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ProfileLayout.Parent = ProfileScroll
 
-    ProfileTab:CreateButton("🔑 Room ID (Job ID): " .. tostring(game.JobId), function()
-        setclipboard(tostring(game.JobId))
-    end)
+    local function CreateProfileItem(Text, Callback)
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(1, -6, 0, 34)
+        Btn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
+        Btn.Text = Text
+        Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Btn.TextSize = 11
+        Btn.Font = Enum.Font.GothamBold
+        Btn.Parent = ProfileScroll
 
-    -- Rejoin Server
-    ProfileTab:CreateButton("🔄 Rejoin Server", function()
+        local BtnCorner = Instance.new("UICorner")
+        BtnCorner.CornerRadius = UDim.new(0, 6)
+        BtnCorner.Parent = Btn
+
+        if Callback then Btn.MouseButton1Click:Connect(Callback) end
+        ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 10)
+    end
+
+    CreateProfileItem("👤 User ID: " .. tostring(LocalPlayer.UserId), function() setclipboard(tostring(LocalPlayer.UserId)) end)
+    CreateProfileItem("🎮 Game: " .. CurrentGameName, nil)
+    CreateProfileItem("🔑 Job ID: " .. tostring(game.JobId), function() setclipboard(tostring(game.JobId)) end)
+    
+    CreateProfileItem("🔄 Rejoin Server", function()
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end)
 
-    -- Server Hop (Random Public Server)
-    ProfileTab:CreateButton("🔀 Server Hop (Random)", function()
+    CreateProfileItem("🔀 Server Hop (Random)", function()
         pcall(function()
             local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=Desc&limit=100")
             local body = HttpService:JSONDecode(req)
@@ -772,8 +820,7 @@ function LunoLibrary:CreateWindow(Settings)
         end)
     end)
 
-    -- Small Server Hop (Lowest Players)
-    ProfileTab:CreateButton("📉 Small Server Hop (Lowest Players)", function()
+    CreateProfileItem("📉 Small Server Hop (Lowest Players)", function()
         pcall(function()
             local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=Asc&limit=100")
             local body = HttpService:JSONDecode(req)
