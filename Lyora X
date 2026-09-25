@@ -1,11 +1,9 @@
 --[[
-    LUNO UI Library v10.0 (Masterpiece Sidebar & Discord Integration)
-    Fixed:
-      - Header Logo "LUNO by LUNAR" wrapped in Matching Card Background (Matches Top Banner)
-      - Dedicated "Discord" Copy Button placed in Sidebar directly above User Profile
-      - Real Clipboard Copying + Instant Success Notification
-      - Seamless Sidebar Layout with Precision Spacing
-      - Pinned Config & MISC System with 100% Cross-Executor Support
+    LUNO UI Library v11.0 (Final Visual & Color Perfection)
+    Revisions:
+      - Left Header Card "LUNO by LUNAR" background now matches Right Banner 100% (No more black card)
+      - Mobile/Tablet Pop-Up Icon changed from circle to sleek badge with text "LUNO" (Non-circular, 100% draggable)
+      - Full Config & MISC Systems intact with 100% Cross-Executor Support
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -113,7 +111,7 @@ LunoLibrary.Flags = {}
 LunoLibrary.Elements = {}
 
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name = "LunoUILibrary_v10"
+MainScreenGui.Name = "LunoUILibrary_v11"
 MainScreenGui.ResetOnSpawn = false
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 MainScreenGui.Parent = GetParentGui()
@@ -255,28 +253,31 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- Draggable Mobile/Tablet Floating Pop-Up Icon
+    ---------------------------------------------------------
+    -- SLEEK BADGE MOBILE & TABLET FLOATING BUTTON (NON-CIRCULAR)
+    ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
-    FloatingPopUp.Size = UDim2.new(0, 46, 0, 46)
+    FloatingPopUp.Size = UDim2.new(0, 60, 0, 28) -- Sleek Capsule Badge Size
     FloatingPopUp.Position = UDim2.new(0, 15, 0.25, 0)
-    FloatingPopUp.BackgroundColor3 = Color3.fromRGB(12, 18, 32)
+    FloatingPopUp.BackgroundColor3 = Color3.fromRGB(15, 22, 38)
     FloatingPopUp.Visible = (DeviceType ~= "PC")
     FloatingPopUp.ZIndex = 999
     FloatingPopUp.Parent = MainScreenGui
 
-    local FloatCorner = Instance.new("UICorner") FloatCorner.CornerRadius = UDim.new(1, 0) FloatCorner.Parent = FloatingPopUp
-    local FloatStroke = Instance.new("UIStroke") FloatStroke.Color = Color3.fromRGB(0, 110, 255) FloatStroke.Thickness = 1.5 FloatStroke.Parent = FloatingPopUp
+    local FloatCorner = Instance.new("UICorner") FloatCorner.CornerRadius = UDim.new(0, 8) FloatCorner.Parent = FloatingPopUp -- Sleek rounded rectangle (Not a circle)
+    local FloatStroke = Instance.new("UIStroke") FloatStroke.Color = Color3.fromRGB(0, 110, 255) FloatStroke.Thickness = 1.2 FloatStroke.Parent = FloatingPopUp
 
     local FloatBtn = Instance.new("TextButton")
     FloatBtn.Size = UDim2.new(1, 0, 1, 0)
     FloatBtn.BackgroundTransparency = 1
     FloatBtn.Text = "LUNO"
     FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FloatBtn.Font = Enum.Font.GothamBlack
-    FloatBtn.TextSize = 10
+    FloatBtn.Font = Enum.Font.GothamBold
+    FloatBtn.TextSize = 11
     FloatBtn.Parent = FloatingPopUp
 
+    -- Smooth Dragging Logic for Floating Icon
     local FloatDragging = false
     local FloatDragStart, FloatStartPos
 
@@ -355,7 +356,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- LEFT SIDEBAR WITH HEADER LOGO CARD & DISCORD BUTTON
+    -- LEFT SIDEBAR WITH MATCHING NEON GRADIENT HEADER CARD
     ---------------------------------------------------------
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name = "LeftSidebar"
@@ -367,7 +368,7 @@ function LunoLibrary:CreateWindow(Settings)
 
     local SidebarCorner = Instance.new("UICorner") SidebarCorner.CornerRadius = UDim.new(0, 12) SidebarCorner.Parent = LeftSidebar
 
-    -- MATCHING HEADER LOGO CARD (Exact background style as Top Banner)
+    -- MATCHING HEADER LOGO CARD (Exact background color and gradient as Banner)
     local LogoHeaderCard = Instance.new("Frame")
     LogoHeaderCard.Name = "LogoHeaderCard"
     LogoHeaderCard.Size = UDim2.new(1, -16, 0, 65)
@@ -380,8 +381,9 @@ function LunoLibrary:CreateWindow(Settings)
 
     local LogoGradient = Instance.new("UIGradient")
     LogoGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 28, 48)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 18, 32))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 80, 200)),
+        ColorSequenceKeypoint.new(0.6, Color3.fromRGB(12, 18, 32)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 110, 255))
     })
     LogoGradient.Parent = LogoHeaderCard
 
@@ -407,7 +409,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    -- DISCORD BUTTON (Positioned in Sidebar directly ABOVE User Profile Card)
+    -- DISCORD BUTTON (In Sidebar directly ABOVE User Profile Card)
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
@@ -479,7 +481,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     UserGameLbl.Parent = UserCard
 
-    -- NAVIGATION CONTAINER (Between Header Card and Discord Button)
+    -- NAVIGATION CONTAINER
     local NavContainer = Instance.new("Frame")
     NavContainer.Size = UDim2.new(1, -16, 1, -180)
     NavContainer.Position = UDim2.new(0, 8, 0, 80)
@@ -492,7 +494,7 @@ function LunoLibrary:CreateWindow(Settings)
     NavList.Parent = NavContainer
 
     ---------------------------------------------------------
-    -- TOP BANNER (CLEAN TEXT LAYOUT)
+    -- TOP BANNER
     ---------------------------------------------------------
     local Banner = Instance.new("Frame")
     Banner.Size = UDim2.new(1, -170, 0, 65)
