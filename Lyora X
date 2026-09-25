@@ -1,11 +1,10 @@
 --[[
-    LUNO UI Library v11.0 (Fixed Smooth Fly Engine & Zero Emoji Edition)
+    LUNO UI Library v11.0 (Per-Game Config Isolation Engine)
     Revisions:
-      - Fly Hack fixed completely using smooth BodyVelocity & BodyGyro physics.
-      - Keybind F removed: Fly is now 100% controlled via simple On/Off Toggle.
-      - Full Mobile & PC joystick support for flying in 3D camera direction.
-      - Added "Fly Speed" slider in MISC tab.
-      - 100% Emoji Free & Clean Minimalist UI.
+      - Config System now isolates settings per-game automatically (LunoConfigs/Place_[PlaceId]/).
+      - Prevents config clashing or overwriting between different Roblox games.
+      - 100% Emoji Free & Clean Minimalist UI intact.
+      - Fixed Smooth Fly Hack Engine & 100% Native Core Fonts (Zero blank text bug).
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -256,7 +255,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- TRANSPARENT FLOATING BADGE (Default Bold Font)
+    -- TRANSPARENT FLOATING BADGE
     ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
@@ -413,7 +412,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    -- DISCORD BUTTON (Clean Centered Default Bold)
+    -- DISCORD BUTTON
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
@@ -1136,7 +1135,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ---------------------------------------------------------
-    -- REVISED SMOOTH 3D FLY SYSTEM (PURE TOGGLE - NO KEYBIND)
+    -- SMOOTH 3D FLY SYSTEM
     ---------------------------------------------------------
     local Flying = false
     local FlySpeed = 50
@@ -1198,7 +1197,6 @@ function LunoLibrary:CreateWindow(Settings)
                 moveVector = (camCF.LookVector * dotForward) + (camCF.RightVector * dotRight)
             end
 
-            -- Controls for PC (Space to go Up, Shift/Q to go Down)
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 moveVector = moveVector + Vector3.new(0, 1, 0)
             elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
@@ -1392,7 +1390,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "CONFIG" TAB
+    -- AUTOMATICALLY INJECTED "CONFIG" TAB (PER-GAME ISOLATION)
     ---------------------------------------------------------
     local ConfigTab = LunoLibrary:CreateTab("Config", 9999)
 
@@ -1402,13 +1400,18 @@ function LunoLibrary:CreateWindow(Settings)
     local SelectedConfigName = ""
     local ConfigDropdownObj
 
+    -- Sub-folder khusus berdasarkan ID Game
+    local GameConfigFolder = "LunoConfigs/Place_" .. tostring(game.PlaceId)
+
     local function GetSavedConfigNames()
         local list = {}
         pcall(function()
-            local files = SafeListFiles("LunoConfigs")
+            SafeMakeFolder("LunoConfigs")
+            SafeMakeFolder(GameConfigFolder)
+            local files = SafeListFiles(GameConfigFolder)
             for _, file in ipairs(files) do
                 if file:sub(-5) == ".json" then
-                    local cleanName = file:gsub("LunoConfigs\\", ""):gsub("LunoConfigs/", ""):gsub("%.json", "")
+                    local cleanName = file:gsub(GameConfigFolder .. "\\", ""):gsub(GameConfigFolder .. "/", ""):gsub("%.json", "")
                     table.insert(list, cleanName)
                 end
             end
@@ -1432,8 +1435,9 @@ function LunoLibrary:CreateWindow(Settings)
         Callback = function()
             local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             SafeMakeFolder("LunoConfigs")
+            SafeMakeFolder(GameConfigFolder)
             local jsonString = HttpService:JSONEncode(LunoLibrary.Flags)
-            SafeWriteFile("LunoConfigs/" .. finalSaveName .. ".json", jsonString)
+            SafeWriteFile(GameConfigFolder .. "/" .. finalSaveName .. ".json", jsonString)
             
             SelectedConfigName = finalSaveName
             LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. finalSaveName, Duration = 3})
@@ -1464,7 +1468,7 @@ function LunoLibrary:CreateWindow(Settings)
             end
 
             if targetFile ~= "" and targetFile ~= "No Saved Configs" then
-                local content = SafeReadFile("LunoConfigs/" .. targetFile .. ".json")
+                local content = SafeReadFile(GameConfigFolder .. "/" .. targetFile .. ".json")
                 if content then
                     local success, data = pcall(function() return HttpService:JSONDecode(content) end)
                     if success and type(data) == "table" then
@@ -1491,7 +1495,7 @@ function LunoLibrary:CreateWindow(Settings)
         Title = "Delete Selected Config",
         Callback = function()
             if SelectedConfigName ~= "" and SelectedConfigName ~= "No Saved Configs" then
-                SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
+                SafeDeleteFile(GameConfigFolder .. "/" .. SelectedConfigName .. ".json")
                 LunoLibrary:Notify({Title = "Config Deleted", Content = "Deleted: " .. SelectedConfigName, Duration = 3})
                 local newList = GetSavedConfigNames()
                 SelectedConfigName = newList[1] or ""
