@@ -1,5 +1,5 @@
 --[[
-    LUNO UI Library v11.1 (Fixed Sidebar Resize & Fixed Anti-AFK Edition)
+    LUNO UI Library v11.2 (Fixed Sidebar Resize & Anti-AFK + Discord Icon Edition)
     Revisions:
       - Fly Hack fixed completely using smooth BodyVelocity & BodyGyro physics.
       - Keybind F removed: Fly is now 100% controlled via simple On/Off Toggle.
@@ -7,6 +7,7 @@
       - Added "Fly Speed" slider in MISC tab.
       - FIXED: Sidebar nav overlap when resized small (now scrollable).
       - FIXED: Anti-AFK now actually works (auto-starts on load + dual-method fail-safe).
+      - ADDED: Discord icon logo next to "Discord" text in sidebar button.
       - 100% Emoji Free & Clean Minimalist UI.
 --]]
 
@@ -241,7 +242,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     local Resizing = false
     local ResizeStart, StartSize
-    -- FIX: Raised MinSize.Y from 350 to 400 so sidebar has enough room before nav becomes cramped
     local MinSize = Vector2.new(550, 400)
     local MaxSize = Vector2.new(ViewportSize.X - 20, ViewportSize.Y - 20)
 
@@ -416,13 +416,13 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    -- DISCORD BUTTON (Clean Centered Default Bold)
+    -- DISCORD BUTTON (Clean Centered Default Bold, with icon)
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
     DiscordBtn.Position = UDim2.new(0, 8, 1, -94)
     DiscordBtn.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
-    DiscordBtn.Text = "Discord"
+    DiscordBtn.Text = "   Discord"
     DiscordBtn.TextColor3 = Color3.fromRGB(120, 180, 255)
     DiscordBtn.Font = Enum.Font.SourceSansBold
     DiscordBtn.TextSize = 14
@@ -431,6 +431,16 @@ function LunoLibrary:CreateWindow(Settings)
 
     local DiscordCorner = Instance.new("UICorner") DiscordCorner.CornerRadius = UDim.new(0, 6) DiscordCorner.Parent = DiscordBtn
     local DiscordStroke = Instance.new("UIStroke") DiscordStroke.Color = Color3.fromRGB(0, 110, 255) DiscordStroke.Thickness = 1 DiscordStroke.Transparency = 0.7 DiscordStroke.Parent = DiscordBtn
+
+    -- Discord Logo Icon (Asset ID: 16584754901)
+    local DiscordIcon = Instance.new("ImageLabel")
+    DiscordIcon.Name = "DiscordIcon"
+    DiscordIcon.Size = UDim2.new(0, 18, 0, 18)
+    DiscordIcon.Position = UDim2.new(0, 12, 0.5, -9)
+    DiscordIcon.BackgroundTransparency = 1
+    DiscordIcon.Image = "rbxassetid://16584754901"
+    DiscordIcon.ZIndex = 5
+    DiscordIcon.Parent = DiscordBtn
 
     DiscordBtn.MouseButton1Click:Connect(function()
         RealSetClipboard(DiscordInvite)
@@ -735,9 +745,8 @@ function LunoLibrary:CreateWindow(Settings)
             
             LunoLibrary.Elements[Flag] = { Set = SetState }
 
-            -- FIX: Auto-invoke Callback if Default is true so features
-            -- like Anti-AFK actually start working immediately on load
-            -- instead of requiring a manual click to "reset" the state.
+            -- Auto-invoke Callback if Default is true so features
+            -- like Anti-AFK actually start working immediately on load.
             if Toggled then
                 task.spawn(function()
                     Callback(Toggled)
@@ -1388,13 +1397,8 @@ function LunoLibrary:CreateWindow(Settings)
 
     ---------------------------------------------------------
     -- FIXED ANTI-AFK SYSTEM
-    -- Method changed: now uses DUAL protection --
-    --   1) Instant response via Player.Idled event
-    --   2) Fail-safe periodic loop every 60s (in case Idled
-    --      event doesn't fire reliably in some environments)
-    -- Properly starts/stops based on toggle state, and now
-    -- actually activates on load since CreateToggle auto-fires
-    -- the callback when Default = true.
+    -- Dual protection: instant Idled event + periodic fail-safe
+    -- loop every 60s. Properly starts/stops based on toggle state.
     ---------------------------------------------------------
     local AntiAFKEnabled = true
     local AntiAFKIdleConn = nil
@@ -1409,7 +1413,6 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function StartAntiAFK()
-        -- Method 1: Instant reaction the moment Roblox detects idle
         if not AntiAFKIdleConn then
             AntiAFKIdleConn = LocalPlayer.Idled:Connect(function()
                 AntiAFKPulse()
@@ -1417,7 +1420,6 @@ function LunoLibrary:CreateWindow(Settings)
             RegisterConnection(AntiAFKIdleConn)
         end
 
-        -- Method 2: Fail-safe loop, runs independently every 60s
         if not AntiAFKLoopRunning then
             AntiAFKLoopRunning = true
             task.spawn(function()
