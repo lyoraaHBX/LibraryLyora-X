@@ -229,7 +229,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     local Resizing = false
     local ResizeStart, StartSize
-    -- FIX: Raised MinSize.Y from 350 to 400 so sidebar has enough room before nav becomes cramped
     local MinSize = Vector2.new(550, 400)
     local MaxSize = Vector2.new(ViewportSize.X - 20, ViewportSize.Y - 20)
 
@@ -478,9 +477,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     ---------------------------------------------------------
     -- NAVIGATION CONTAINER
-    -- FIX: Changed from Frame to ScrollingFrame so tab buttons
-    -- scroll instead of overlapping Discord/User Card when the
-    -- window is resized to a small height.
     ---------------------------------------------------------
     local NavContainer = Instance.new("ScrollingFrame")
     NavContainer.Name = "NavContainer"
@@ -622,11 +618,36 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ElementsLayout.Parent = ScrollElements
 
-        -- Section Header
-        function TabElements:CreateSection(SectionName)
+        ---------------------------------------------------------
+        -- NEW: Container tracking + guaranteed ordering + auto
+        -- canvas resize. Purely additive - does not change
+        -- behavior for any existing element that doesn't use the
+        -- new Box/Paragraph features.
+        ---------------------------------------------------------
+        local CurrentContainer = ScrollElements
+        local OrderCounter = 0
+        local function NextOrder()
+            OrderCounter = OrderCounter + 1
+            return OrderCounter
+        end
+
+        RegisterConnection(ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+        end))
+
+        -- Section Header (NOW SUPPORTS Box = true)
+        function TabElements:CreateSection(SectionName, Settings)
+            Settings = Settings or {}
+            local UseBox = Settings.Box or false
+
+            -- A normal (non-box) section always resets flow back to the
+            -- tab's main list, exactly matching original behavior.
+            CurrentContainer = ScrollElements
+
             local SecFrame = Instance.new("Frame")
             SecFrame.Size = UDim2.new(1, -6, 0, 20)
             SecFrame.BackgroundTransparency = 1
+            SecFrame.LayoutOrder = NextOrder()
             SecFrame.Parent = ScrollElements
 
             local SecLbl = Instance.new("TextLabel")
@@ -638,6 +659,35 @@ function LunoLibrary:CreateWindow(Settings)
             SecLbl.Font = Enum.Font.SourceSansBold
             SecLbl.TextXAlignment = Enum.TextXAlignment.Left
             SecLbl.Parent = SecFrame
+
+            if UseBox then
+                local BoxFrame = Instance.new("Frame")
+                BoxFrame.Size = UDim2.new(1, -6, 0, 0)
+                BoxFrame.AutomaticSize = Enum.AutomaticSize.Y
+                BoxFrame.BackgroundColor3 = Color3.fromRGB(13, 18, 30)
+                BoxFrame.BorderSizePixel = 0
+                BoxFrame.LayoutOrder = NextOrder()
+                BoxFrame.Parent = ScrollElements
+
+                local BoxCorner = Instance.new("UICorner") BoxCorner.CornerRadius = UDim.new(0, 8) BoxCorner.Parent = BoxFrame
+                local BoxStroke = Instance.new("UIStroke") BoxStroke.Color = Color3.fromRGB(0, 90, 200) BoxStroke.Thickness = 1 BoxStroke.Transparency = 0.55 BoxStroke.Parent = BoxFrame
+
+                local BoxPadding = Instance.new("UIPadding")
+                BoxPadding.PaddingTop = UDim.new(0, 8)
+                BoxPadding.PaddingBottom = UDim.new(0, 8)
+                BoxPadding.PaddingLeft = UDim.new(0, 6)
+                BoxPadding.PaddingRight = UDim.new(0, 6)
+                BoxPadding.Parent = BoxFrame
+
+                local BoxLayout = Instance.new("UIListLayout")
+                BoxLayout.Padding = UDim.new(0, 4)
+                BoxLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                BoxLayout.Parent = BoxFrame
+
+                -- All elements created after this call (until the next
+                -- CreateSection) will parent themselves inside this box.
+                CurrentContainer = BoxFrame
+            end
 
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
@@ -654,7 +704,8 @@ function LunoLibrary:CreateWindow(Settings)
             Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             Btn.TextSize = 12
             Btn.Font = Enum.Font.TitilliumWeb
-            Btn.Parent = ScrollElements
+            Btn.LayoutOrder = NextOrder()
+            Btn.Parent = CurrentContainer
 
             local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
             Btn.MouseButton1Click:Connect(Callback)
@@ -674,7 +725,8 @@ function LunoLibrary:CreateWindow(Settings)
             local ToggleFrame = Instance.new("Frame")
             ToggleFrame.Size = UDim2.new(1, -6, 0, 30)
             ToggleFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            ToggleFrame.Parent = ScrollElements
+            ToggleFrame.LayoutOrder = NextOrder()
+            ToggleFrame.Parent = CurrentContainer
 
             local ToggleCorner = Instance.new("UICorner") ToggleCorner.CornerRadius = UDim.new(0, 6) ToggleCorner.Parent = ToggleFrame
 
@@ -720,12 +772,9 @@ function LunoLibrary:CreateWindow(Settings)
             end
 
             TriggerBtn.MouseButton1Click:Connect(function() SetState(not Toggled) end)
-            
+
             LunoLibrary.Elements[Flag] = { Set = SetState }
 
-            -- FIX: Auto-invoke Callback if Default is true so features
-            -- like Anti-AFK actually start working immediately on load
-            -- instead of requiring a manual click to "reset" the state.
             if Toggled then
                 task.spawn(function()
                     Callback(Toggled)
@@ -750,7 +799,8 @@ function LunoLibrary:CreateWindow(Settings)
             local SliderFrame = Instance.new("Frame")
             SliderFrame.Size = UDim2.new(1, -6, 0, 36)
             SliderFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            SliderFrame.Parent = ScrollElements
+            SliderFrame.LayoutOrder = NextOrder()
+            SliderFrame.Parent = CurrentContainer
 
             local SliderCorner = Instance.new("UICorner") SliderCorner.CornerRadius = UDim.new(0, 6) SliderCorner.Parent = SliderFrame
 
@@ -840,7 +890,8 @@ function LunoLibrary:CreateWindow(Settings)
             DropFrame.Size = UDim2.new(1, -6, 0, 32)
             DropFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             DropFrame.ClipsDescendants = true
-            DropFrame.Parent = ScrollElements
+            DropFrame.LayoutOrder = NextOrder()
+            DropFrame.Parent = CurrentContainer
 
             local DropCorner = Instance.new("UICorner") DropCorner.CornerRadius = UDim.new(0, 6) DropCorner.Parent = DropFrame
 
@@ -957,7 +1008,8 @@ function LunoLibrary:CreateWindow(Settings)
             local InputFrame = Instance.new("Frame")
             InputFrame.Size = UDim2.new(1, -6, 0, 32)
             InputFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            InputFrame.Parent = ScrollElements
+            InputFrame.LayoutOrder = NextOrder()
+            InputFrame.Parent = CurrentContainer
 
             local InputCorner = Instance.new("UICorner") InputCorner.CornerRadius = UDim.new(0, 6) InputCorner.Parent = InputFrame
 
@@ -1001,6 +1053,71 @@ function LunoLibrary:CreateWindow(Settings)
             end)
 
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+        end
+
+        ---------------------------------------------------------
+        -- NEW: Paragraph (Dynamic Text Display)
+        ---------------------------------------------------------
+        function TabElements:CreateParagraph(Settings)
+            Settings = Settings or {}
+            local Title = Settings.Title or "Paragraph"
+            local Desc = Settings.Desc or Settings.Content or ""
+
+            local ParaFrame = Instance.new("Frame")
+            ParaFrame.Size = UDim2.new(1, -6, 0, 0)
+            ParaFrame.AutomaticSize = Enum.AutomaticSize.Y
+            ParaFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
+            ParaFrame.BorderSizePixel = 0
+            ParaFrame.LayoutOrder = NextOrder()
+            ParaFrame.Parent = CurrentContainer
+
+            local ParaCorner = Instance.new("UICorner") ParaCorner.CornerRadius = UDim.new(0, 6) ParaCorner.Parent = ParaFrame
+
+            local ParaPadding = Instance.new("UIPadding")
+            ParaPadding.PaddingTop = UDim.new(0, 8)
+            ParaPadding.PaddingBottom = UDim.new(0, 8)
+            ParaPadding.PaddingLeft = UDim.new(0, 10)
+            ParaPadding.PaddingRight = UDim.new(0, 10)
+            ParaPadding.Parent = ParaFrame
+
+            local ParaLayout = Instance.new("UIListLayout")
+            ParaLayout.Padding = UDim.new(0, 4)
+            ParaLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            ParaLayout.Parent = ParaFrame
+
+            local TitleLbl = Instance.new("TextLabel")
+            TitleLbl.Size = UDim2.new(1, 0, 0, 16)
+            TitleLbl.AutomaticSize = Enum.AutomaticSize.Y
+            TitleLbl.BackgroundTransparency = 1
+            TitleLbl.Text = Title
+            TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+            TitleLbl.TextSize = 13
+            TitleLbl.Font = Enum.Font.SourceSansBold
+            TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLbl.TextWrapped = true
+            TitleLbl.LayoutOrder = 1
+            TitleLbl.Parent = ParaFrame
+
+            local DescLbl = Instance.new("TextLabel")
+            DescLbl.Size = UDim2.new(1, 0, 0, 14)
+            DescLbl.AutomaticSize = Enum.AutomaticSize.Y
+            DescLbl.BackgroundTransparency = 1
+            DescLbl.Text = Desc
+            DescLbl.TextColor3 = Color3.fromRGB(150, 165, 190)
+            DescLbl.TextSize = 11
+            DescLbl.Font = Enum.Font.TitilliumWeb
+            DescLbl.TextXAlignment = Enum.TextXAlignment.Left
+            DescLbl.TextWrapped = true
+            DescLbl.LayoutOrder = 2
+            DescLbl.Parent = ParaFrame
+
+            local ParaObj = {}
+            function ParaObj:SetTitle(NewTitle) TitleLbl.Text = NewTitle end
+            function ParaObj:SetDesc(NewDesc) DescLbl.Text = NewDesc end
+
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+
+            return ParaObj
         end
 
         -- Script List
@@ -1215,7 +1332,6 @@ function LunoLibrary:CreateWindow(Settings)
                 moveVector = (camCF.LookVector * dotForward) + (camCF.RightVector * dotRight)
             end
 
-            -- Controls for PC (Space to go Up, Shift/Q to go Down)
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 moveVector = moveVector + Vector3.new(0, 1, 0)
             elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
@@ -1374,16 +1490,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     MiscTab:CreateSection("Utilities & Protection")
 
-    ---------------------------------------------------------
-    -- FIXED ANTI-AFK SYSTEM
-    -- Method changed: now uses DUAL protection --
-    --   1) Instant response via Player.Idled event
-    --   2) Fail-safe periodic loop every 60s (in case Idled
-    --      event doesn't fire reliably in some environments)
-    -- Properly starts/stops based on toggle state, and now
-    -- actually activates on load since CreateToggle auto-fires
-    -- the callback when Default = true.
-    ---------------------------------------------------------
     local AntiAFKEnabled = true
     local AntiAFKIdleConn = nil
     local AntiAFKLoopRunning = false
@@ -1397,7 +1503,6 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function StartAntiAFK()
-        -- Method 1: Instant reaction the moment Roblox detects idle
         if not AntiAFKIdleConn then
             AntiAFKIdleConn = LocalPlayer.Idled:Connect(function()
                 AntiAFKPulse()
@@ -1405,7 +1510,6 @@ function LunoLibrary:CreateWindow(Settings)
             RegisterConnection(AntiAFKIdleConn)
         end
 
-        -- Method 2: Fail-safe loop, runs independently every 60s
         if not AntiAFKLoopRunning then
             AntiAFKLoopRunning = true
             task.spawn(function()
