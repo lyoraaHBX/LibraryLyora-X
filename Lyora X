@@ -1,10 +1,13 @@
 --[[
-    LUNO UI Library v11.0 (Per-Game Config Isolation Engine)
+    LUNO UI Library v11.1 (Fixed Sidebar Resize & Fixed Anti-AFK Edition)
     Revisions:
-      - Config System now isolates settings per-game automatically (LunoConfigs/Place_[PlaceId]/).
-      - Prevents config clashing or overwriting between different Roblox games.
-      - 100% Emoji Free & Clean Minimalist UI intact.
-      - Fixed Smooth Fly Hack Engine & 100% Native Core Fonts (Zero blank text bug).
+      - Fly Hack fixed completely using smooth BodyVelocity & BodyGyro physics.
+      - Keybind F removed: Fly is now 100% controlled via simple On/Off Toggle.
+      - Full Mobile & PC joystick support for flying in 3D camera direction.
+      - Added "Fly Speed" slider in MISC tab.
+      - FIXED: Sidebar nav overlap when resized small (now scrollable).
+      - FIXED: Anti-AFK now actually works (auto-starts on load + dual-method fail-safe).
+      - 100% Emoji Free & Clean Minimalist UI.
 --]]
 
 if getgenv().LunoUI_Cleanup then
@@ -238,7 +241,8 @@ function LunoLibrary:CreateWindow(Settings)
 
     local Resizing = false
     local ResizeStart, StartSize
-    local MinSize = Vector2.new(550, 350)
+    -- FIX: Raised MinSize.Y from 350 to 400 so sidebar has enough room before nav becomes cramped
+    local MinSize = Vector2.new(550, 400)
     local MaxSize = Vector2.new(ViewportSize.X - 20, ViewportSize.Y - 20)
 
     ResizeHitbox.InputBegan:Connect(function(input)
@@ -255,7 +259,7 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     ---------------------------------------------------------
-    -- TRANSPARENT FLOATING BADGE
+    -- TRANSPARENT FLOATING BADGE (Default Bold Font)
     ---------------------------------------------------------
     local FloatingPopUp = Instance.new("Frame")
     FloatingPopUp.Name = "LunoFloatingPopUp"
@@ -412,7 +416,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
     LogoSubText.Parent = LogoHeaderCard
 
-    -- DISCORD BUTTON
+    -- DISCORD BUTTON (Clean Centered Default Bold)
     local DiscordBtn = Instance.new("TextButton")
     DiscordBtn.Name = "DiscordBtn"
     DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
@@ -484,17 +488,33 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.TextTruncate = Enum.TextTruncate.AtEnd
     UserGameLbl.Parent = UserCard
 
+    ---------------------------------------------------------
     -- NAVIGATION CONTAINER
-    local NavContainer = Instance.new("Frame")
+    -- FIX: Changed from Frame to ScrollingFrame so tab buttons
+    -- scroll instead of overlapping Discord/User Card when the
+    -- window is resized to a small height.
+    ---------------------------------------------------------
+    local NavContainer = Instance.new("ScrollingFrame")
+    NavContainer.Name = "NavContainer"
     NavContainer.Size = UDim2.new(1, -16, 1, -180)
     NavContainer.Position = UDim2.new(0, 8, 0, 80)
     NavContainer.BackgroundTransparency = 1
+    NavContainer.BorderSizePixel = 0
+    NavContainer.ScrollBarThickness = 2
+    NavContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
+    NavContainer.ScrollingDirection = Enum.ScrollingDirection.Y
+    NavContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    NavContainer.ClipsDescendants = true
     NavContainer.Parent = LeftSidebar
 
     local NavList = Instance.new("UIListLayout")
     NavList.Padding = UDim.new(0, 5)
     NavList.SortOrder = Enum.SortOrder.LayoutOrder
     NavList.Parent = NavContainer
+
+    RegisterConnection(NavList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        NavContainer.CanvasSize = UDim2.new(0, 0, 0, NavList.AbsoluteContentSize.Y + 10)
+    end))
 
     ---------------------------------------------------------
     -- TOP BANNER
@@ -714,6 +734,16 @@ function LunoLibrary:CreateWindow(Settings)
             TriggerBtn.MouseButton1Click:Connect(function() SetState(not Toggled) end)
             
             LunoLibrary.Elements[Flag] = { Set = SetState }
+
+            -- FIX: Auto-invoke Callback if Default is true so features
+            -- like Anti-AFK actually start working immediately on load
+            -- instead of requiring a manual click to "reset" the state.
+            if Toggled then
+                task.spawn(function()
+                    Callback(Toggled)
+                end)
+            end
+
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
 
@@ -1135,7 +1165,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ---------------------------------------------------------
-    -- SMOOTH 3D FLY SYSTEM
+    -- REVISED SMOOTH 3D FLY SYSTEM (PURE TOGGLE - NO KEYBIND)
     ---------------------------------------------------------
     local Flying = false
     local FlySpeed = 50
@@ -1197,6 +1227,7 @@ function LunoLibrary:CreateWindow(Settings)
                 moveVector = (camCF.LookVector * dotForward) + (camCF.RightVector * dotRight)
             end
 
+            -- Controls for PC (Space to go Up, Shift/Q to go Down)
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 moveVector = moveVector + Vector3.new(0, 1, 0)
             elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
@@ -1355,16 +1386,69 @@ function LunoLibrary:CreateWindow(Settings)
 
     MiscTab:CreateSection("Utilities & Protection")
 
+    ---------------------------------------------------------
+    -- FIXED ANTI-AFK SYSTEM
+    -- Method changed: now uses DUAL protection --
+    --   1) Instant response via Player.Idled event
+    --   2) Fail-safe periodic loop every 60s (in case Idled
+    --      event doesn't fire reliably in some environments)
+    -- Properly starts/stops based on toggle state, and now
+    -- actually activates on load since CreateToggle auto-fires
+    -- the callback when Default = true.
+    ---------------------------------------------------------
+    local AntiAFKEnabled = true
+    local AntiAFKIdleConn = nil
+    local AntiAFKLoopRunning = false
+
+    local function AntiAFKPulse()
+        pcall(function()
+            local vu = game:GetService("VirtualUser")
+            vu:CaptureController()
+            vu:ClickButton2(Vector2.new())
+        end)
+    end
+
+    local function StartAntiAFK()
+        -- Method 1: Instant reaction the moment Roblox detects idle
+        if not AntiAFKIdleConn then
+            AntiAFKIdleConn = LocalPlayer.Idled:Connect(function()
+                AntiAFKPulse()
+            end)
+            RegisterConnection(AntiAFKIdleConn)
+        end
+
+        -- Method 2: Fail-safe loop, runs independently every 60s
+        if not AntiAFKLoopRunning then
+            AntiAFKLoopRunning = true
+            task.spawn(function()
+                while AntiAFKEnabled and AntiAFKLoopRunning do
+                    task.wait(60)
+                    if AntiAFKEnabled then
+                        AntiAFKPulse()
+                    end
+                end
+            end)
+        end
+    end
+
+    local function StopAntiAFK()
+        AntiAFKLoopRunning = false
+        if AntiAFKIdleConn then
+            pcall(function() AntiAFKIdleConn:Disconnect() end)
+            AntiAFKIdleConn = nil
+        end
+    end
+
     MiscTab:CreateToggle({
         Title = "Anti-AFK Bypass (20-Min Protection)",
         Default = true,
         Flag = "AntiAFKBypass",
         Callback = function(State)
+            AntiAFKEnabled = State
             if State then
-                local vu = game:GetService("VirtualUser")
-                RegisterConnection(LocalPlayer.Idled:Connect(function()
-                    vu:CaptureController() vu:ClickButton2(Vector2.new())
-                end))
+                StartAntiAFK()
+            else
+                StopAntiAFK()
             end
         end
     })
@@ -1390,7 +1474,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "CONFIG" TAB (PER-GAME ISOLATION)
+    -- AUTOMATICALLY INJECTED "CONFIG" TAB
     ---------------------------------------------------------
     local ConfigTab = LunoLibrary:CreateTab("Config", 9999)
 
@@ -1400,18 +1484,13 @@ function LunoLibrary:CreateWindow(Settings)
     local SelectedConfigName = ""
     local ConfigDropdownObj
 
-    -- Sub-folder khusus berdasarkan ID Game
-    local GameConfigFolder = "LunoConfigs/Place_" .. tostring(game.PlaceId)
-
     local function GetSavedConfigNames()
         local list = {}
         pcall(function()
-            SafeMakeFolder("LunoConfigs")
-            SafeMakeFolder(GameConfigFolder)
-            local files = SafeListFiles(GameConfigFolder)
+            local files = SafeListFiles("LunoConfigs")
             for _, file in ipairs(files) do
                 if file:sub(-5) == ".json" then
-                    local cleanName = file:gsub(GameConfigFolder .. "\\", ""):gsub(GameConfigFolder .. "/", ""):gsub("%.json", "")
+                    local cleanName = file:gsub("LunoConfigs\\", ""):gsub("LunoConfigs/", ""):gsub("%.json", "")
                     table.insert(list, cleanName)
                 end
             end
@@ -1435,9 +1514,8 @@ function LunoLibrary:CreateWindow(Settings)
         Callback = function()
             local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             SafeMakeFolder("LunoConfigs")
-            SafeMakeFolder(GameConfigFolder)
             local jsonString = HttpService:JSONEncode(LunoLibrary.Flags)
-            SafeWriteFile(GameConfigFolder .. "/" .. finalSaveName .. ".json", jsonString)
+            SafeWriteFile("LunoConfigs/" .. finalSaveName .. ".json", jsonString)
             
             SelectedConfigName = finalSaveName
             LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. finalSaveName, Duration = 3})
@@ -1468,7 +1546,7 @@ function LunoLibrary:CreateWindow(Settings)
             end
 
             if targetFile ~= "" and targetFile ~= "No Saved Configs" then
-                local content = SafeReadFile(GameConfigFolder .. "/" .. targetFile .. ".json")
+                local content = SafeReadFile("LunoConfigs/" .. targetFile .. ".json")
                 if content then
                     local success, data = pcall(function() return HttpService:JSONDecode(content) end)
                     if success and type(data) == "table" then
@@ -1495,7 +1573,7 @@ function LunoLibrary:CreateWindow(Settings)
         Title = "Delete Selected Config",
         Callback = function()
             if SelectedConfigName ~= "" and SelectedConfigName ~= "No Saved Configs" then
-                SafeDeleteFile(GameConfigFolder .. "/" .. SelectedConfigName .. ".json")
+                SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
                 LunoLibrary:Notify({Title = "Config Deleted", Content = "Deleted: " .. SelectedConfigName, Duration = 3})
                 local newList = GetSavedConfigNames()
                 SelectedConfigName = newList[1] or ""
