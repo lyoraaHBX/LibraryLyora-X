@@ -619,10 +619,8 @@ function LunoLibrary:CreateWindow(Settings)
         ElementsLayout.Parent = ScrollElements
 
         ---------------------------------------------------------
-        -- NEW: Container tracking + guaranteed ordering + auto
-        -- canvas resize. Purely additive - does not change
-        -- behavior for any existing element that doesn't use the
-        -- new Box/Paragraph features.
+        -- Container tracking + guaranteed ordering + auto
+        -- canvas resize + BOX GROUPING STYLE SYSTEM
         ---------------------------------------------------------
         local CurrentContainer = ScrollElements
         local OrderCounter = 0
@@ -631,11 +629,36 @@ function LunoLibrary:CreateWindow(Settings)
             return OrderCounter
         end
 
+        -- BOX STYLE STATE (NEW - fixes ugly chunky box look)
+        local InsideBox = false
+        local CurrentBoxRowCount = 0
+
+        local function StyleRowForBox(frame)
+            if InsideBox then
+                frame.BackgroundTransparency = 1
+                frame.Size = UDim2.new(1, 0, frame.Size.Y.Scale, frame.Size.Y.Offset)
+                for _, c in ipairs(frame:GetChildren()) do
+                    if c:IsA("UICorner") then c:Destroy() end
+                end
+                CurrentBoxRowCount = CurrentBoxRowCount + 1
+                if CurrentBoxRowCount > 1 then
+                    local Divider = Instance.new("Frame")
+                    Divider.Name = "RowDivider"
+                    Divider.Size = UDim2.new(1, 0, 0, 1)
+                    Divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    Divider.BackgroundTransparency = 0.93
+                    Divider.BorderSizePixel = 0
+                    Divider.ZIndex = (frame.ZIndex or 1) + 1
+                    Divider.Parent = frame
+                end
+            end
+        end
+
         RegisterConnection(ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end))
 
-        -- Section Header (NOW SUPPORTS Box = true)
+        -- Section Header (NOW SUPPORTS Box = true, WITH CLEAN GROUPED STYLE)
         function TabElements:CreateSection(SectionName, Settings)
             Settings = Settings or {}
             local UseBox = Settings.Box or false
@@ -643,6 +666,8 @@ function LunoLibrary:CreateWindow(Settings)
             -- A normal (non-box) section always resets flow back to the
             -- tab's main list, exactly matching original behavior.
             CurrentContainer = ScrollElements
+            InsideBox = false
+            CurrentBoxRowCount = 0
 
             local SecFrame = Instance.new("Frame")
             SecFrame.Size = UDim2.new(1, -6, 0, 20)
@@ -666,6 +691,7 @@ function LunoLibrary:CreateWindow(Settings)
                 BoxFrame.AutomaticSize = Enum.AutomaticSize.Y
                 BoxFrame.BackgroundColor3 = Color3.fromRGB(13, 18, 30)
                 BoxFrame.BorderSizePixel = 0
+                BoxFrame.ClipsDescendants = true
                 BoxFrame.LayoutOrder = NextOrder()
                 BoxFrame.Parent = ScrollElements
 
@@ -673,20 +699,21 @@ function LunoLibrary:CreateWindow(Settings)
                 local BoxStroke = Instance.new("UIStroke") BoxStroke.Color = Color3.fromRGB(0, 90, 200) BoxStroke.Thickness = 1 BoxStroke.Transparency = 0.55 BoxStroke.Parent = BoxFrame
 
                 local BoxPadding = Instance.new("UIPadding")
-                BoxPadding.PaddingTop = UDim.new(0, 8)
-                BoxPadding.PaddingBottom = UDim.new(0, 8)
-                BoxPadding.PaddingLeft = UDim.new(0, 6)
-                BoxPadding.PaddingRight = UDim.new(0, 6)
+                BoxPadding.PaddingTop = UDim.new(0, 2)
+                BoxPadding.PaddingBottom = UDim.new(0, 2)
                 BoxPadding.Parent = BoxFrame
 
                 local BoxLayout = Instance.new("UIListLayout")
-                BoxLayout.Padding = UDim.new(0, 4)
+                BoxLayout.Padding = UDim.new(0, 0)
                 BoxLayout.SortOrder = Enum.SortOrder.LayoutOrder
                 BoxLayout.Parent = BoxFrame
 
                 -- All elements created after this call (until the next
-                -- CreateSection) will parent themselves inside this box.
+                -- CreateSection) will parent themselves inside this box
+                -- AND get the clean grouped-row styling applied.
                 CurrentContainer = BoxFrame
+                InsideBox = true
+                CurrentBoxRowCount = 0
             end
 
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
@@ -708,6 +735,8 @@ function LunoLibrary:CreateWindow(Settings)
             Btn.Parent = CurrentContainer
 
             local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
+            StyleRowForBox(Btn)
+
             Btn.MouseButton1Click:Connect(Callback)
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end
@@ -729,6 +758,7 @@ function LunoLibrary:CreateWindow(Settings)
             ToggleFrame.Parent = CurrentContainer
 
             local ToggleCorner = Instance.new("UICorner") ToggleCorner.CornerRadius = UDim.new(0, 6) ToggleCorner.Parent = ToggleFrame
+            StyleRowForBox(ToggleFrame)
 
             local ToggleLbl = Instance.new("TextLabel")
             ToggleLbl.Size = UDim2.new(1, -50, 1, 0)
@@ -803,6 +833,7 @@ function LunoLibrary:CreateWindow(Settings)
             SliderFrame.Parent = CurrentContainer
 
             local SliderCorner = Instance.new("UICorner") SliderCorner.CornerRadius = UDim.new(0, 6) SliderCorner.Parent = SliderFrame
+            StyleRowForBox(SliderFrame)
 
             local SliderLbl = Instance.new("TextLabel")
             SliderLbl.Size = UDim2.new(1, -60, 0, 16)
@@ -894,6 +925,7 @@ function LunoLibrary:CreateWindow(Settings)
             DropFrame.Parent = CurrentContainer
 
             local DropCorner = Instance.new("UICorner") DropCorner.CornerRadius = UDim.new(0, 6) DropCorner.Parent = DropFrame
+            StyleRowForBox(DropFrame)
 
             local DropLbl = Instance.new("TextLabel")
             DropLbl.Size = UDim2.new(0, 120, 0, 32)
@@ -1012,6 +1044,7 @@ function LunoLibrary:CreateWindow(Settings)
             InputFrame.Parent = CurrentContainer
 
             local InputCorner = Instance.new("UICorner") InputCorner.CornerRadius = UDim.new(0, 6) InputCorner.Parent = InputFrame
+            StyleRowForBox(InputFrame)
 
             local InputLbl = Instance.new("TextLabel")
             InputLbl.Size = UDim2.new(0, 120, 1, 0)
@@ -1056,7 +1089,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
 
         ---------------------------------------------------------
-        -- NEW: Paragraph (Dynamic Text Display)
+        -- Paragraph (Dynamic Text Display)
         ---------------------------------------------------------
         function TabElements:CreateParagraph(Settings)
             Settings = Settings or {}
@@ -1072,6 +1105,7 @@ function LunoLibrary:CreateWindow(Settings)
             ParaFrame.Parent = CurrentContainer
 
             local ParaCorner = Instance.new("UICorner") ParaCorner.CornerRadius = UDim.new(0, 6) ParaCorner.Parent = ParaFrame
+            StyleRowForBox(ParaFrame)
 
             local ParaPadding = Instance.new("UIPadding")
             ParaPadding.PaddingTop = UDim.new(0, 8)
@@ -1238,7 +1272,7 @@ function LunoLibrary:CreateWindow(Settings)
     ---------------------------------------------------------
     local MiscTab = LunoLibrary:CreateTab("MISC", 9998)
 
-    MiscTab:CreateSection("Movement Abilities")
+    MiscTab:CreateSection("Movement Abilities", {Box = true})
 
     MiscTab:CreateSlider({
         Title = "WalkSpeed Hack",
@@ -1350,6 +1384,8 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
+    MiscTab:CreateSection("Fly System", {Box = true})
+
     MiscTab:CreateToggle({
         Title = "Fly Hack",
         Default = false,
@@ -1374,7 +1410,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    MiscTab:CreateSection("Visual ESP Elements")
+    MiscTab:CreateSection("Visual ESP Elements", {Box = true})
 
     local BoxESPEnabled = false
     local function UpdateBoxESP()
@@ -1453,7 +1489,7 @@ function LunoLibrary:CreateWindow(Settings)
         Callback = function(State) NameESPEnabled = State end
     })
 
-    MiscTab:CreateSection("Player Teleport")
+    MiscTab:CreateSection("Player Teleport", {Box = true})
 
     local TargetTeleportPlayer = ""
     local PlayerDropdownObj
@@ -1488,7 +1524,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    MiscTab:CreateSection("Utilities & Protection")
+    MiscTab:CreateSection("Utilities & Protection", {Box = true})
 
     local AntiAFKEnabled = true
     local AntiAFKIdleConn = nil
@@ -1570,7 +1606,7 @@ function LunoLibrary:CreateWindow(Settings)
     ---------------------------------------------------------
     local ConfigTab = LunoLibrary:CreateTab("Config", 9999)
 
-    ConfigTab:CreateSection("Configuration Manager")
+    ConfigTab:CreateSection("Configuration Manager", {Box = true})
 
     local TypedConfigName = ""
     local SelectedConfigName = ""
@@ -1615,7 +1651,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    ConfigTab:CreateSection("Load & Delete Manager")
+    ConfigTab:CreateSection("Load & Delete Manager", {Box = true})
 
     ConfigDropdownObj = ConfigTab:CreateDropdown({
         Title = "Select Saved Config",
