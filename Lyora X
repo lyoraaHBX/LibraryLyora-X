@@ -606,12 +606,24 @@ function LunoLibrary:CreateWindow(Settings)
 
         local TabElements = {}
         local ScrollElements = Instance.new("ScrollingFrame")
-        ScrollElements.Size = UDim2.new(1, -10, 1, 0)
+        ScrollElements.Size = UDim2.new(1, 0, 1, 0)
         ScrollElements.BackgroundTransparency = 1
         ScrollElements.BorderSizePixel = 0
         ScrollElements.ScrollBarThickness = 3
         ScrollElements.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
         ScrollElements.Parent = TabPage
+
+        ---------------------------------------------------------
+        -- FIX: Padding biar box/element ga nempel ke sidebar
+        -- kiri maupun scrollbar kanan (dulu ScrollElements.Size
+        -- cuma (1,-10,1,0) tanpa padding sama sekali)
+        ---------------------------------------------------------
+        local ScrollPadding = Instance.new("UIPadding")
+        ScrollPadding.PaddingLeft = UDim.new(0, 10)
+        ScrollPadding.PaddingRight = UDim.new(0, 14)
+        ScrollPadding.PaddingTop = UDim.new(0, 4)
+        ScrollPadding.PaddingBottom = UDim.new(0, 10)
+        ScrollPadding.Parent = ScrollElements
 
         local ElementsLayout = Instance.new("UIListLayout")
         ElementsLayout.Padding = UDim.new(0, 4)
@@ -629,7 +641,7 @@ function LunoLibrary:CreateWindow(Settings)
             return OrderCounter
         end
 
-        -- BOX STYLE STATE (NEW - fixes ugly chunky box look)
+        -- BOX STYLE STATE
         local InsideBox = false
         local CurrentBoxRowCount = 0
 
@@ -658,7 +670,7 @@ function LunoLibrary:CreateWindow(Settings)
             ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
         end))
 
-        -- Section Header (NOW SUPPORTS Box = true, WITH CLEAN GROUPED STYLE)
+        -- Section Header (SUPPORTS Box = true, WITH CLEAN GROUPED STYLE)
         function TabElements:CreateSection(SectionName, Settings)
             Settings = Settings or {}
             local UseBox = Settings.Box or false
@@ -670,7 +682,7 @@ function LunoLibrary:CreateWindow(Settings)
             CurrentBoxRowCount = 0
 
             local SecFrame = Instance.new("Frame")
-            SecFrame.Size = UDim2.new(1, -6, 0, 20)
+            SecFrame.Size = UDim2.new(1, 0, 0, 20)
             SecFrame.BackgroundTransparency = 1
             SecFrame.LayoutOrder = NextOrder()
             SecFrame.Parent = ScrollElements
@@ -687,7 +699,7 @@ function LunoLibrary:CreateWindow(Settings)
 
             if UseBox then
                 local BoxFrame = Instance.new("Frame")
-                BoxFrame.Size = UDim2.new(1, -6, 0, 0)
+                BoxFrame.Size = UDim2.new(1, 0, 0, 0)
                 BoxFrame.AutomaticSize = Enum.AutomaticSize.Y
                 BoxFrame.BackgroundColor3 = Color3.fromRGB(13, 18, 30)
                 BoxFrame.BorderSizePixel = 0
@@ -725,7 +737,7 @@ function LunoLibrary:CreateWindow(Settings)
             local Callback = Settings.Callback or function() end
 
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, -6, 0, 30)
+            Btn.Size = UDim2.new(1, 0, 0, 30)
             Btn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             Btn.Text = Name
             Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -752,7 +764,7 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Toggled
 
             local ToggleFrame = Instance.new("Frame")
-            ToggleFrame.Size = UDim2.new(1, -6, 0, 30)
+            ToggleFrame.Size = UDim2.new(1, 0, 0, 30)
             ToggleFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             ToggleFrame.LayoutOrder = NextOrder()
             ToggleFrame.Parent = CurrentContainer
@@ -827,7 +839,7 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Default
 
             local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, -6, 0, 36)
+            SliderFrame.Size = UDim2.new(1, 0, 0, 36)
             SliderFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             SliderFrame.LayoutOrder = NextOrder()
             SliderFrame.Parent = CurrentContainer
@@ -918,7 +930,7 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Selected
 
             local DropFrame = Instance.new("Frame")
-            DropFrame.Size = UDim2.new(1, -6, 0, 32)
+            DropFrame.Size = UDim2.new(1, 0, 0, 32)
             DropFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             DropFrame.ClipsDescendants = true
             DropFrame.LayoutOrder = NextOrder()
@@ -1005,7 +1017,7 @@ function LunoLibrary:CreateWindow(Settings)
                         else
                             SetDropdownValue(opt)
                             IsExpanded = false
-                            TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -6, 0, 32)}):Play()
+                            TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 32)}):Play()
                             Arrow.Text = "▼"
                         end
                     end)
@@ -1019,7 +1031,7 @@ function LunoLibrary:CreateWindow(Settings)
                 IsExpanded = not IsExpanded
                 local currentOptionCount = #ListHolder:GetChildren() - 1
                 local targetH = IsExpanded and (36 + currentOptionCount * 26) or 32
-                TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -6, 0, targetH)}):Play()
+                TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetH)}):Play()
                 Arrow.Text = IsExpanded and "▲" or "▼"
                 task.wait(0.2)
                 ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
@@ -1038,7 +1050,7 @@ function LunoLibrary:CreateWindow(Settings)
             local Callback = Settings.Callback or function() end
 
             local InputFrame = Instance.new("Frame")
-            InputFrame.Size = UDim2.new(1, -6, 0, 32)
+            InputFrame.Size = UDim2.new(1, 0, 0, 32)
             InputFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             InputFrame.LayoutOrder = NextOrder()
             InputFrame.Parent = CurrentContainer
@@ -1097,7 +1109,7 @@ function LunoLibrary:CreateWindow(Settings)
             local Desc = Settings.Desc or Settings.Content or ""
 
             local ParaFrame = Instance.new("Frame")
-            ParaFrame.Size = UDim2.new(1, -6, 0, 0)
+            ParaFrame.Size = UDim2.new(1, 0, 0, 0)
             ParaFrame.AutomaticSize = Enum.AutomaticSize.Y
             ParaFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             ParaFrame.BorderSizePixel = 0
