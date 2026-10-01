@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNO UI LIBRARY v12 - FIXED VERSION
+-- LUNO UI LIBRARY v13 - RESPONSIVE + FIXED VERSION
 -- ============================================================
 
 if getgenv().LunoUI_Cleanup then
@@ -35,6 +35,23 @@ local DeviceType   = "PC"
 if IsTouch and not IsKeyboard then
     DeviceType = (ViewportSize.X < 800) and "Mobile" or "Tablet"
 end
+
+-- ── UI Scaling (Responsive per Device) ────────────────────
+local UIScale = {
+    SidebarWidth     = (DeviceType == "PC") and 200 or (DeviceType == "Tablet") and 180 or 155,
+    TabButtonHeight  = (DeviceType == "PC") and 40  or (DeviceType == "Tablet") and 36  or 34,
+    TabFontSize      = (DeviceType == "PC") and 15  or (DeviceType == "Tablet") and 14  or 13,
+    NavPadding       = (DeviceType == "PC") and 8   or 6,
+    LogoFontSize     = (DeviceType == "PC") and 23  or 20,
+    LogoSubFontSize  = (DeviceType == "PC") and 13  or 12,
+    DiscordFontSize  = (DeviceType == "PC") and 15  or 14,
+    UserFontSize     = (DeviceType == "PC") and 13  or 12,
+    UserSubFontSize  = (DeviceType == "PC") and 11  or 10,
+    ElementFontSize  = (DeviceType == "PC") and 13  or 12,
+    SectionFontSize  = (DeviceType == "PC") and 13  or 12,
+}
+
+local SidebarGap = UIScale.SidebarWidth + 5
 
 -- ── Game Name ─────────────────────────────────────────────
 local CurrentGameName = "Roblox Game"
@@ -81,12 +98,11 @@ local function SafeDeleteFile(path)
 end
 
 -- ── Parent GUI ────────────────────────────────────────────
--- FIX #1: Tidak buat ScreenGui baru di dalam fungsi ini
 local function GetParentGui()
     if gethui then
         return gethui()
     elseif syn and syn.protect_gui then
-        return CoreGui   -- protect_gui akan dipakai saat MainScreenGui dibuat
+        return CoreGui
     elseif CoreGui:FindFirstChild("RobloxGui") then
         return CoreGui
     else
@@ -100,11 +116,10 @@ LunoLibrary.Flags    = {}
 LunoLibrary.Elements = {}
 
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name           = "LunoUILibrary_v12"
+MainScreenGui.Name           = "LunoUILibrary_v13"
 MainScreenGui.ResetOnSpawn   = false
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- FIX #1 continued: protect_gui sebelum parent
 if syn and syn.protect_gui then
     syn.protect_gui(MainScreenGui)
 end
@@ -206,9 +221,13 @@ function LunoLibrary:CreateWindow(Settings)
     local DiscordInvite = Settings.Discord or "https://discord.gg/lunar"
 
     local BaseWidth  = (DeviceType == "Mobile")
-        and math.clamp(ViewportSize.X - 30, 480, 680) or 800
+        and math.clamp(ViewportSize.X - 30, 480, 680)
+        or (DeviceType == "Tablet") and 820
+        or 860
     local BaseHeight = (DeviceType == "Mobile")
-        and math.clamp(ViewportSize.Y - 30, 320, 420) or 480
+        and math.clamp(ViewportSize.Y - 30, 320, 420)
+        or (DeviceType == "Tablet") and 500
+        or 520
 
     -- ── Main Frame ────────────────────────────────────────
     local MainFrame = Instance.new("Frame")
@@ -273,7 +292,7 @@ function LunoLibrary:CreateWindow(Settings)
     ResizeHitbox.Parent             = MainFrame
 
     local Resizing, ResizeStart, StartSize = false, nil, nil
-    local MinSize = Vector2.new(550, 400)
+    local MinSize = Vector2.new(620, 420)
     local MaxSize = Vector2.new(ViewportSize.X - 20, ViewportSize.Y - 20)
 
     ResizeHitbox.InputBegan:Connect(function(input)
@@ -425,7 +444,7 @@ function LunoLibrary:CreateWindow(Settings)
     -- ── Left Sidebar ──────────────────────────────────────
     local LeftSidebar = Instance.new("Frame")
     LeftSidebar.Name             = "LeftSidebar"
-    LeftSidebar.Size             = UDim2.new(0, 160, 1, 0)
+    LeftSidebar.Size             = UDim2.new(0, UIScale.SidebarWidth, 1, 0)
     LeftSidebar.BackgroundColor3 = Color3.fromRGB(12, 17, 28)
     LeftSidebar.BorderSizePixel  = 0
     LeftSidebar.ClipsDescendants = true
@@ -460,7 +479,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoText.BackgroundTransparency = 1
     LogoText.Text              = TitleText
     LogoText.TextColor3        = Color3.fromRGB(255, 255, 255)
-    LogoText.TextSize          = 20
+    LogoText.TextSize          = UIScale.LogoFontSize
     LogoText.Font              = Enum.Font.SourceSansBold
     LogoText.TextXAlignment    = Enum.TextXAlignment.Left
     LogoText.Parent            = LogoHeaderCard
@@ -471,7 +490,7 @@ function LunoLibrary:CreateWindow(Settings)
     LogoSub.BackgroundTransparency = 1
     LogoSub.Text              = SubTitleText
     LogoSub.TextColor3        = Color3.fromRGB(0, 170, 255)
-    LogoSub.TextSize          = 12
+    LogoSub.TextSize          = UIScale.LogoSubFontSize
     LogoSub.Font              = Enum.Font.SourceSansBold
     LogoSub.TextXAlignment    = Enum.TextXAlignment.Left
     LogoSub.Parent            = LogoHeaderCard
@@ -485,7 +504,7 @@ function LunoLibrary:CreateWindow(Settings)
     DiscordBtn.Text             = "Discord"
     DiscordBtn.TextColor3       = Color3.fromRGB(120, 180, 255)
     DiscordBtn.Font             = Enum.Font.SourceSansBold
-    DiscordBtn.TextSize         = 14
+    DiscordBtn.TextSize         = UIScale.DiscordFontSize
     DiscordBtn.TextXAlignment   = Enum.TextXAlignment.Center
     DiscordBtn.Parent           = LeftSidebar
 
@@ -536,7 +555,7 @@ function LunoLibrary:CreateWindow(Settings)
     UsernameLbl.BackgroundTransparency = 1
     UsernameLbl.Text              = LocalPlayer.DisplayName
     UsernameLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
-    UsernameLbl.TextSize          = 12
+    UsernameLbl.TextSize          = UIScale.UserFontSize
     UsernameLbl.Font              = Enum.Font.TitilliumWeb
     UsernameLbl.TextXAlignment    = Enum.TextXAlignment.Left
     UsernameLbl.TextTruncate      = Enum.TextTruncate.AtEnd
@@ -548,7 +567,7 @@ function LunoLibrary:CreateWindow(Settings)
     UserGameLbl.BackgroundTransparency = 1
     UserGameLbl.Text              = CurrentGameName
     UserGameLbl.TextColor3        = Color3.fromRGB(0, 170, 255)
-    UserGameLbl.TextSize          = 10
+    UserGameLbl.TextSize          = UIScale.UserSubFontSize
     UserGameLbl.Font              = Enum.Font.TitilliumWeb
     UserGameLbl.TextXAlignment    = Enum.TextXAlignment.Left
     UserGameLbl.TextTruncate      = Enum.TextTruncate.AtEnd
@@ -561,7 +580,7 @@ function LunoLibrary:CreateWindow(Settings)
     NavContainer.Position               = UDim2.new(0, 8, 0, 80)
     NavContainer.BackgroundTransparency = 1
     NavContainer.BorderSizePixel        = 0
-    NavContainer.ScrollBarThickness     = 2
+    NavContainer.ScrollBarThickness     = 3
     NavContainer.ScrollBarImageColor3   = Color3.fromRGB(0, 102, 255)
     NavContainer.ScrollingDirection     = Enum.ScrollingDirection.Y
     NavContainer.CanvasSize             = UDim2.new(0, 0, 0, 0)
@@ -569,7 +588,7 @@ function LunoLibrary:CreateWindow(Settings)
     NavContainer.Parent                 = LeftSidebar
 
     local NavList = Instance.new("UIListLayout")
-    NavList.Padding    = UDim.new(0, 5)
+    NavList.Padding    = UDim.new(0, UIScale.NavPadding)
     NavList.SortOrder  = Enum.SortOrder.LayoutOrder
     NavList.Parent     = NavContainer
 
@@ -579,8 +598,8 @@ function LunoLibrary:CreateWindow(Settings)
 
     -- Banner
     local Banner = Instance.new("Frame")
-    Banner.Size             = UDim2.new(1, -170, 0, 65)
-    Banner.Position         = UDim2.new(0, 165, 0, 8)
+    Banner.Size             = UDim2.new(1, -(SidebarGap + 5), 0, 65)
+    Banner.Position         = UDim2.new(0, SidebarGap, 0, 8)
     Banner.BackgroundColor3 = Color3.fromRGB(15, 22, 38)
     Banner.ClipsDescendants = true
     Banner.Parent           = MainFrame
@@ -619,8 +638,8 @@ function LunoLibrary:CreateWindow(Settings)
 
     -- Content Container
     local ContentContainer = Instance.new("Frame")
-    ContentContainer.Size               = UDim2.new(1, -170, 1, -82)
-    ContentContainer.Position           = UDim2.new(0, 165, 0, 78)
+    ContentContainer.Size               = UDim2.new(1, -(SidebarGap + 5), 1, -82)
+    ContentContainer.Position           = UDim2.new(0, SidebarGap, 0, 78)
     ContentContainer.BackgroundTransparency = 1
     ContentContainer.Parent             = MainFrame
 
@@ -629,24 +648,16 @@ function LunoLibrary:CreateWindow(Settings)
     local ActiveTab      = nil
     local UserTabCounter = 0
 
-    -- FIX #7: SwitchTab harus skip tab yang tidak punya Button (hidden tabs)
+    -- FIXED: SwitchTab sekarang SELALU hide semua page tanpa kecuali
     local function SwitchTab(TargetTab)
         for _, tab in pairs(Tabs) do
             if tab.Button then
                 tab.Button.BackgroundTransparency = 1
                 tab.Button.TextColor3 = Color3.fromRGB(130, 150, 180)
             end
-            -- Hanya hide tab yang BUKAN hidden tab
-            if not tab.Hidden then
-                tab.Page.Visible = false
-            end
+            tab.Page.Visible = false
         end
-        -- Jika target adalah hidden tab, sembunyikan semua page lain
-        if TargetTab.Hidden then
-            for _, tab in pairs(Tabs) do
-                tab.Page.Visible = false
-            end
-        end
+
         if TargetTab.Button then
             TargetTab.Button.BackgroundTransparency = 0
             TargetTab.Button.BackgroundColor3       = Color3.fromRGB(0, 102, 255)
@@ -657,7 +668,6 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     -- ── CreateTab ─────────────────────────────────────────
-    -- FIX #2: CreateTab sekarang benar-benar per-window (tidak global)
     local function CreateTabInternal(TabName, FixedOrder, IsHidden)
         local LayoutOrderValue = FixedOrder or (UserTabCounter + 1)
         if not FixedOrder then UserTabCounter = UserTabCounter + 1 end
@@ -665,13 +675,13 @@ function LunoLibrary:CreateWindow(Settings)
         local TabButton = nil
         if not IsHidden then
             TabButton = Instance.new("TextButton")
-            TabButton.Size                 = UDim2.new(1, 0, 0, 32)
+            TabButton.Size                 = UDim2.new(1, 0, 0, UIScale.TabButtonHeight)
             TabButton.BackgroundColor3     = Color3.fromRGB(18, 26, 42)
             TabButton.BackgroundTransparency = 1
-            TabButton.Text                 = "   " .. TabName
+            TabButton.Text                 = "    " .. TabName
             TabButton.TextColor3           = Color3.fromRGB(130, 150, 180)
-            TabButton.TextSize             = 12
-            TabButton.Font                 = Enum.Font.TitilliumWeb
+            TabButton.TextSize             = UIScale.TabFontSize
+            TabButton.Font                 = Enum.Font.GothamSemibold
             TabButton.TextXAlignment       = Enum.TextXAlignment.Left
             TabButton.LayoutOrder          = LayoutOrderValue
             TabButton.Parent               = NavContainer
@@ -693,7 +703,6 @@ function LunoLibrary:CreateWindow(Settings)
         }
         Tabs[TabName] = TabObj
 
-        -- Auto-select first real tab
         if not IsHidden and UserTabCounter == 1 then
             SwitchTab(TabObj)
         end
@@ -742,28 +751,30 @@ function LunoLibrary:CreateWindow(Settings)
 
         RegisterConnection(ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(RefreshCanvas))
 
-        -- FIX #4: StyleRowForBox dengan Divider yang diposisikan benar
+        -- FIXED: PrepareRow membuat divider SEBELUM elemen baru,
+        -- dengan LayoutOrder berurutan (tidak minus/tabrakan)
+        local function PrepareRow()
+            if InsideBox then
+                if CurrentBoxRowCount > 0 then
+                    local Divider = Instance.new("Frame")
+                    Divider.Name                   = "RowDivider"
+                    Divider.Size                   = UDim2.new(1, 0, 0, 1)
+                    Divider.BackgroundColor3       = Color3.fromRGB(255, 255, 255)
+                    Divider.BackgroundTransparency = 0.9
+                    Divider.BorderSizePixel        = 0
+                    Divider.LayoutOrder            = NextOrder()
+                    Divider.Parent                 = CurrentContainer
+                end
+                CurrentBoxRowCount = CurrentBoxRowCount + 1
+            end
+            return NextOrder()
+        end
+
         local function StyleRowForBox(frame)
             if not InsideBox then return end
-
             frame.BackgroundTransparency = 1
             for _, c in ipairs(frame:GetChildren()) do
                 if c:IsA("UICorner") then c:Destroy() end
-            end
-
-            CurrentBoxRowCount = CurrentBoxRowCount + 1
-
-            if CurrentBoxRowCount > 1 then
-                -- Divider diparent ke container, BUKAN ke frame itu sendiri
-                -- supaya tidak overlap dengan konten frame
-                local Divider = Instance.new("Frame")
-                Divider.Name                = "RowDivider"
-                Divider.Size                = UDim2.new(1, 0, 0, 1)
-                Divider.BackgroundColor3    = Color3.fromRGB(255, 255, 255)
-                Divider.BackgroundTransparency = 0.9
-                Divider.BorderSizePixel     = 0
-                Divider.LayoutOrder         = frame.LayoutOrder - 1  -- sebelum frame
-                Divider.Parent              = CurrentContainer
             end
         end
 
@@ -772,7 +783,6 @@ function LunoLibrary:CreateWindow(Settings)
             Opts = Opts or {}
             local UseBox = Opts.Box or false
 
-            -- Reset ke root
             CurrentContainer     = ScrollElements
             InsideBox            = false
             CurrentBoxRowCount   = 0
@@ -788,7 +798,7 @@ function LunoLibrary:CreateWindow(Settings)
             SecLbl.BackgroundTransparency = 1
             SecLbl.Text              = string.upper(SectionName)
             SecLbl.TextColor3        = Color3.fromRGB(0, 170, 255)
-            SecLbl.TextSize          = 12
+            SecLbl.TextSize          = UIScale.SectionFontSize
             SecLbl.Font              = Enum.Font.SourceSansBold
             SecLbl.TextXAlignment    = Enum.TextXAlignment.Left
             SecLbl.Parent            = SecFrame
@@ -837,13 +847,13 @@ function LunoLibrary:CreateWindow(Settings)
             local Callback = Opts.Callback or function() end
 
             local Btn = Instance.new("TextButton")
-            Btn.Size             = UDim2.new(1, 0, 0, 30)
+            Btn.Size             = UDim2.new(1, 0, 0, 32)
             Btn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             Btn.Text             = Name
             Btn.TextColor3       = Color3.fromRGB(255, 255, 255)
-            Btn.TextSize         = 12
+            Btn.TextSize         = UIScale.ElementFontSize
             Btn.Font             = Enum.Font.TitilliumWeb
-            Btn.LayoutOrder      = NextOrder()
+            Btn.LayoutOrder      = PrepareRow()
             Btn.Parent           = CurrentContainer
 
             if not InsideBox then
@@ -851,6 +861,15 @@ function LunoLibrary:CreateWindow(Settings)
                 bc2.CornerRadius = UDim.new(0, 6); bc2.Parent = Btn
             end
             StyleRowForBox(Btn)
+
+            -- Hover effect
+            Btn.MouseEnter:Connect(function()
+                TweenService:Create(Btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(24, 32, 50)}):Play()
+            end)
+            Btn.MouseLeave:Connect(function()
+                TweenService:Create(Btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(16, 22, 36)}):Play()
+            end)
+
             Btn.MouseButton1Click:Connect(Callback)
             RefreshCanvas()
         end
@@ -867,9 +886,9 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Toggled
 
             local ToggleFrame = Instance.new("Frame")
-            ToggleFrame.Size             = UDim2.new(1, 0, 0, 30)
+            ToggleFrame.Size             = UDim2.new(1, 0, 0, 34)
             ToggleFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            ToggleFrame.LayoutOrder      = NextOrder()
+            ToggleFrame.LayoutOrder      = PrepareRow()
             ToggleFrame.Parent           = CurrentContainer
 
             if not InsideBox then
@@ -879,19 +898,19 @@ function LunoLibrary:CreateWindow(Settings)
             StyleRowForBox(ToggleFrame)
 
             local ToggleLbl = Instance.new("TextLabel")
-            ToggleLbl.Size              = UDim2.new(1, -50, 1, 0)
-            ToggleLbl.Position          = UDim2.new(0, 10, 0, 0)
+            ToggleLbl.Size              = UDim2.new(1, -55, 1, 0)
+            ToggleLbl.Position          = UDim2.new(0, 12, 0, 0)
             ToggleLbl.BackgroundTransparency = 1
             ToggleLbl.Text              = Name
             ToggleLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
-            ToggleLbl.TextSize          = 12
+            ToggleLbl.TextSize          = UIScale.ElementFontSize
             ToggleLbl.Font              = Enum.Font.TitilliumWeb
             ToggleLbl.TextXAlignment    = Enum.TextXAlignment.Left
             ToggleLbl.Parent            = ToggleFrame
 
             local Switch = Instance.new("Frame")
-            Switch.Size             = UDim2.new(0, 32, 0, 16)
-            Switch.Position         = UDim2.new(1, -40, 0.5, -8)
+            Switch.Size             = UDim2.new(0, 34, 0, 18)
+            Switch.Position         = UDim2.new(1, -44, 0.5, -9)
             Switch.BackgroundColor3 = Toggled
                 and Color3.fromRGB(0, 102, 255)
                 or  Color3.fromRGB(35, 45, 65)
@@ -899,10 +918,10 @@ function LunoLibrary:CreateWindow(Settings)
             local sc = Instance.new("UICorner"); sc.CornerRadius = UDim.new(1,0); sc.Parent = Switch
 
             local Circle = Instance.new("Frame")
-            Circle.Size             = UDim2.new(0, 12, 0, 12)
+            Circle.Size             = UDim2.new(0, 14, 0, 14)
             Circle.Position         = Toggled
-                and UDim2.new(1, -14, 0.5, -6)
-                or  UDim2.new(0, 2,   0.5, -6)
+                and UDim2.new(1, -16, 0.5, -7)
+                or  UDim2.new(0, 2,   0.5, -7)
             Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             Circle.Parent           = Switch
             local cc2 = Instance.new("UICorner"); cc2.CornerRadius = UDim.new(1,0); cc2.Parent = Circle
@@ -923,8 +942,8 @@ function LunoLibrary:CreateWindow(Settings)
                 }):Play()
                 TweenService:Create(Circle, TweenInfo.new(0.2), {
                     Position = Toggled
-                        and UDim2.new(1, -14, 0.5, -6)
-                        or  UDim2.new(0, 2,   0.5, -6)
+                        and UDim2.new(1, -16, 0.5, -7)
+                        or  UDim2.new(0, 2,   0.5, -7)
                 }):Play()
                 Callback(Toggled)
             end
@@ -952,9 +971,9 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Default
 
             local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size             = UDim2.new(1, 0, 0, 36)
+            SliderFrame.Size             = UDim2.new(1, 0, 0, 40)
             SliderFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            SliderFrame.LayoutOrder      = NextOrder()
+            SliderFrame.LayoutOrder      = PrepareRow()
             SliderFrame.Parent           = CurrentContainer
 
             if not InsideBox then
@@ -964,30 +983,30 @@ function LunoLibrary:CreateWindow(Settings)
             StyleRowForBox(SliderFrame)
 
             local SliderLbl = Instance.new("TextLabel")
-            SliderLbl.Size              = UDim2.new(1, -60, 0, 16)
-            SliderLbl.Position          = UDim2.new(0, 10, 0, 3)
+            SliderLbl.Size              = UDim2.new(1, -70, 0, 18)
+            SliderLbl.Position          = UDim2.new(0, 12, 0, 5)
             SliderLbl.BackgroundTransparency = 1
             SliderLbl.Text              = Name
             SliderLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
-            SliderLbl.TextSize          = 12
+            SliderLbl.TextSize          = UIScale.ElementFontSize
             SliderLbl.Font              = Enum.Font.TitilliumWeb
             SliderLbl.TextXAlignment    = Enum.TextXAlignment.Left
             SliderLbl.Parent            = SliderFrame
 
             local ValLbl = Instance.new("TextLabel")
-            ValLbl.Size              = UDim2.new(0, 50, 0, 16)
-            ValLbl.Position          = UDim2.new(1, -55, 0, 3)
+            ValLbl.Size              = UDim2.new(0, 55, 0, 18)
+            ValLbl.Position          = UDim2.new(1, -62, 0, 5)
             ValLbl.BackgroundTransparency = 1
             ValLbl.Text              = tostring(Default) .. Suffix
             ValLbl.TextColor3        = Color3.fromRGB(0, 170, 255)
-            ValLbl.TextSize          = 12
+            ValLbl.TextSize          = UIScale.ElementFontSize
             ValLbl.Font              = Enum.Font.TitilliumWeb
             ValLbl.TextXAlignment    = Enum.TextXAlignment.Right
             ValLbl.Parent            = SliderFrame
 
             local Bar = Instance.new("Frame")
-            Bar.Size             = UDim2.new(1, -20, 0, 5)
-            Bar.Position         = UDim2.new(0, 10, 0, 22)
+            Bar.Size             = UDim2.new(1, -24, 0, 6)
+            Bar.Position         = UDim2.new(0, 12, 0, 26)
             Bar.BackgroundColor3 = Color3.fromRGB(35, 45, 65)
             Bar.Parent           = SliderFrame
             local barc = Instance.new("UICorner"); barc.CornerRadius = UDim.new(1,0); barc.Parent = Bar
@@ -1056,10 +1075,10 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary.Flags[Flag] = Selected
 
             local DropFrame = Instance.new("Frame")
-            DropFrame.Size             = UDim2.new(1, 0, 0, 32)
+            DropFrame.Size             = UDim2.new(1, 0, 0, 34)
             DropFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             DropFrame.ClipsDescendants = true
-            DropFrame.LayoutOrder      = NextOrder()
+            DropFrame.LayoutOrder      = PrepareRow()
             DropFrame.Parent           = CurrentContainer
 
             if not InsideBox then
@@ -1069,31 +1088,31 @@ function LunoLibrary:CreateWindow(Settings)
             StyleRowForBox(DropFrame)
 
             local DropLbl = Instance.new("TextLabel")
-            DropLbl.Size              = UDim2.new(0, 120, 0, 32)
-            DropLbl.Position          = UDim2.new(0, 10, 0, 0)
+            DropLbl.Size              = UDim2.new(0, 130, 0, 34)
+            DropLbl.Position          = UDim2.new(0, 12, 0, 0)
             DropLbl.BackgroundTransparency = 1
             DropLbl.Text              = Name
             DropLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
-            DropLbl.TextSize          = 12
+            DropLbl.TextSize          = UIScale.ElementFontSize
             DropLbl.Font              = Enum.Font.TitilliumWeb
             DropLbl.TextXAlignment    = Enum.TextXAlignment.Left
             DropLbl.Parent            = DropFrame
 
             local ValDisplay = Instance.new("TextLabel")
-            ValDisplay.Size              = UDim2.new(1, -150, 0, 32)
-            ValDisplay.Position          = UDim2.new(0, 115, 0, 0)
+            ValDisplay.Size              = UDim2.new(1, -160, 0, 34)
+            ValDisplay.Position          = UDim2.new(0, 125, 0, 0)
             ValDisplay.BackgroundTransparency = 1
             ValDisplay.Text              = Multi and table.concat(Selected, ", ") or tostring(Selected)
             ValDisplay.TextColor3        = Color3.fromRGB(0, 170, 255)
-            ValDisplay.TextSize          = 12
+            ValDisplay.TextSize          = UIScale.ElementFontSize
             ValDisplay.Font              = Enum.Font.TitilliumWeb
             ValDisplay.TextXAlignment    = Enum.TextXAlignment.Right
             ValDisplay.TextTruncate      = Enum.TextTruncate.AtEnd
             ValDisplay.Parent            = DropFrame
 
             local Arrow = Instance.new("TextLabel")
-            Arrow.Size              = UDim2.new(0, 20, 0, 32)
-            Arrow.Position          = UDim2.new(1, -25, 0, 0)
+            Arrow.Size              = UDim2.new(0, 22, 0, 34)
+            Arrow.Position          = UDim2.new(1, -27, 0, 0)
             Arrow.BackgroundTransparency = 1
             Arrow.Text              = "▼"
             Arrow.TextColor3        = Color3.fromRGB(120, 140, 170)
@@ -1102,14 +1121,14 @@ function LunoLibrary:CreateWindow(Settings)
             Arrow.Parent            = DropFrame
 
             local TriggerBtn = Instance.new("TextButton")
-            TriggerBtn.Size               = UDim2.new(1, 0, 0, 32)
+            TriggerBtn.Size               = UDim2.new(1, 0, 0, 34)
             TriggerBtn.BackgroundTransparency = 1
             TriggerBtn.Text               = ""
             TriggerBtn.Parent             = DropFrame
 
             local ListHolder = Instance.new("Frame")
-            ListHolder.Size               = UDim2.new(1, -20, 0, #Options * 26)
-            ListHolder.Position           = UDim2.new(0, 10, 0, 32)
+            ListHolder.Size               = UDim2.new(1, -24, 0, #Options * 26)
+            ListHolder.Position           = UDim2.new(0, 12, 0, 34)
             ListHolder.BackgroundTransparency = 1
             ListHolder.Parent             = DropFrame
 
@@ -1130,11 +1149,11 @@ function LunoLibrary:CreateWindow(Settings)
                 end
                 for _, opt in ipairs(NewOptions) do
                     local OptBtn = Instance.new("TextButton")
-                    OptBtn.Size             = UDim2.new(1, 0, 0, 24)
+                    OptBtn.Size             = UDim2.new(1, 0, 0, 26)
                     OptBtn.BackgroundColor3 = Color3.fromRGB(22, 30, 48)
                     OptBtn.Text             = "  " .. opt
                     OptBtn.TextColor3       = Color3.fromRGB(200, 210, 230)
-                    OptBtn.TextSize         = 11
+                    OptBtn.TextSize         = UIScale.ElementFontSize - 1
                     OptBtn.Font             = Enum.Font.TitilliumWeb
                     OptBtn.TextXAlignment   = Enum.TextXAlignment.Left
                     OptBtn.Parent           = ListHolder
@@ -1155,13 +1174,13 @@ function LunoLibrary:CreateWindow(Settings)
                             SetDropdownValue(opt)
                             IsExpanded = false
                             TweenService:Create(DropFrame, TweenInfo.new(0.2), {
-                                Size = UDim2.new(1, 0, 0, 32)
+                                Size = UDim2.new(1, 0, 0, 34)
                             }):Play()
                             Arrow.Text = "▼"
                         end
                     end)
                 end
-                ListHolder.Size = UDim2.new(1, -20, 0, #NewOptions * 26)
+                ListHolder.Size = UDim2.new(1, -24, 0, #NewOptions * 26)
             end
 
             RefreshOptions(Options)
@@ -1172,7 +1191,7 @@ function LunoLibrary:CreateWindow(Settings)
                 for _, c in ipairs(ListHolder:GetChildren()) do
                     if c:IsA("TextButton") then optCount = optCount + 1 end
                 end
-                local targetH = IsExpanded and (36 + optCount * 26) or 32
+                local targetH = IsExpanded and (38 + optCount * 26) or 34
                 TweenService:Create(DropFrame, TweenInfo.new(0.2), {
                     Size = UDim2.new(1, 0, 0, targetH)
                 }):Play()
@@ -1194,9 +1213,9 @@ function LunoLibrary:CreateWindow(Settings)
             local Callback    = Opts.Callback     or function() end
 
             local InputFrame = Instance.new("Frame")
-            InputFrame.Size             = UDim2.new(1, 0, 0, 32)
+            InputFrame.Size             = UDim2.new(1, 0, 0, 34)
             InputFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            InputFrame.LayoutOrder      = NextOrder()
+            InputFrame.LayoutOrder      = PrepareRow()
             InputFrame.Parent           = CurrentContainer
 
             if not InsideBox then
@@ -1206,19 +1225,19 @@ function LunoLibrary:CreateWindow(Settings)
             StyleRowForBox(InputFrame)
 
             local InputLbl = Instance.new("TextLabel")
-            InputLbl.Size              = UDim2.new(0, 120, 1, 0)
-            InputLbl.Position          = UDim2.new(0, 10, 0, 0)
+            InputLbl.Size              = UDim2.new(0, 130, 1, 0)
+            InputLbl.Position          = UDim2.new(0, 12, 0, 0)
             InputLbl.BackgroundTransparency = 1
             InputLbl.Text              = Name
             InputLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
-            InputLbl.TextSize          = 12
+            InputLbl.TextSize          = UIScale.ElementFontSize
             InputLbl.Font              = Enum.Font.TitilliumWeb
             InputLbl.TextXAlignment    = Enum.TextXAlignment.Left
             InputLbl.Parent            = InputFrame
 
             local BoxHolder = Instance.new("Frame")
-            BoxHolder.Size             = UDim2.new(0, 140, 0, 22)
-            BoxHolder.Position         = UDim2.new(1, -150, 0.5, -11)
+            BoxHolder.Size             = UDim2.new(0, 150, 0, 24)
+            BoxHolder.Position         = UDim2.new(1, -162, 0.5, -12)
             BoxHolder.BackgroundColor3 = Color3.fromRGB(22, 30, 48)
             BoxHolder.Parent           = InputFrame
             local bhc = Instance.new("UICorner"); bhc.CornerRadius = UDim.new(0,4); bhc.Parent = BoxHolder
@@ -1231,7 +1250,7 @@ function LunoLibrary:CreateWindow(Settings)
             Box.PlaceholderColor3   = Color3.fromRGB(90, 110, 140)
             Box.Text                = ""
             Box.TextColor3          = Color3.fromRGB(255, 255, 255)
-            Box.TextSize            = 11
+            Box.TextSize            = UIScale.ElementFontSize - 1
             Box.Font                = Enum.Font.TitilliumWeb
             Box.Parent              = BoxHolder
 
@@ -1250,7 +1269,7 @@ function LunoLibrary:CreateWindow(Settings)
             ParaFrame.AutomaticSize    = Enum.AutomaticSize.Y
             ParaFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             ParaFrame.BorderSizePixel  = 0
-            ParaFrame.LayoutOrder      = NextOrder()
+            ParaFrame.LayoutOrder      = PrepareRow()
             ParaFrame.Parent           = CurrentContainer
 
             if not InsideBox then
@@ -1262,8 +1281,8 @@ function LunoLibrary:CreateWindow(Settings)
             local ParaPad = Instance.new("UIPadding")
             ParaPad.PaddingTop    = UDim.new(0, 8)
             ParaPad.PaddingBottom = UDim.new(0, 8)
-            ParaPad.PaddingLeft   = UDim.new(0, 10)
-            ParaPad.PaddingRight  = UDim.new(0, 10)
+            ParaPad.PaddingLeft   = UDim.new(0, 12)
+            ParaPad.PaddingRight  = UDim.new(0, 12)
             ParaPad.Parent        = ParaFrame
 
             local ParaInnerLayout = Instance.new("UIListLayout")
@@ -1277,7 +1296,7 @@ function LunoLibrary:CreateWindow(Settings)
             TitleLbl2.BackgroundTransparency = 1
             TitleLbl2.Text              = Title
             TitleLbl2.TextColor3        = Color3.fromRGB(255, 255, 255)
-            TitleLbl2.TextSize          = 13
+            TitleLbl2.TextSize          = UIScale.ElementFontSize + 1
             TitleLbl2.Font              = Enum.Font.SourceSansBold
             TitleLbl2.TextXAlignment    = Enum.TextXAlignment.Left
             TitleLbl2.TextWrapped       = true
@@ -1290,7 +1309,7 @@ function LunoLibrary:CreateWindow(Settings)
             DescLbl2.BackgroundTransparency = 1
             DescLbl2.Text              = Desc
             DescLbl2.TextColor3        = Color3.fromRGB(150, 165, 190)
-            DescLbl2.TextSize          = 11
+            DescLbl2.TextSize          = UIScale.ElementFontSize - 1
             DescLbl2.Font              = Enum.Font.TitilliumWeb
             DescLbl2.TextXAlignment    = Enum.TextXAlignment.Left
             DescLbl2.TextWrapped       = true
@@ -1308,7 +1327,7 @@ function LunoLibrary:CreateWindow(Settings)
         -- ── Script List ───────────────────────────────────
         function TabElements:CreateScriptList()
             local SearchFrame = Instance.new("Frame")
-            SearchFrame.Size             = UDim2.new(1, -10, 0, 28)
+            SearchFrame.Size             = UDim2.new(1, -10, 0, 30)
             SearchFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             SearchFrame.Parent           = TabPage
             local sfc = Instance.new("UICorner"); sfc.CornerRadius = UDim.new(0,6); sfc.Parent = SearchFrame
@@ -1321,14 +1340,14 @@ function LunoLibrary:CreateWindow(Settings)
             SearchBox2.PlaceholderColor3  = Color3.fromRGB(90, 110, 140)
             SearchBox2.Text               = ""
             SearchBox2.TextColor3         = Color3.fromRGB(255, 255, 255)
-            SearchBox2.TextSize           = 11
+            SearchBox2.TextSize           = UIScale.ElementFontSize - 1
             SearchBox2.Font               = Enum.Font.TitilliumWeb
             SearchBox2.TextXAlignment     = Enum.TextXAlignment.Left
             SearchBox2.Parent             = SearchFrame
 
             local ScrollList = Instance.new("ScrollingFrame")
-            ScrollList.Size                 = UDim2.new(1, -10, 1, -36)
-            ScrollList.Position             = UDim2.new(0, 0, 0, 34)
+            ScrollList.Size                 = UDim2.new(1, -10, 1, -38)
+            ScrollList.Position             = UDim2.new(0, 0, 0, 36)
             ScrollList.BackgroundTransparency = 1
             ScrollList.BorderSizePixel      = 0
             ScrollList.ScrollBarThickness   = 3
@@ -1360,48 +1379,48 @@ function LunoLibrary:CreateWindow(Settings)
                 local CCallback = CardData.Callback    or function() end
 
                 local Card = Instance.new("Frame")
-                Card.Size             = UDim2.new(1, -6, 0, 50)
+                Card.Size             = UDim2.new(1, -6, 0, 52)
                 Card.BackgroundColor3 = Color3.fromRGB(15, 22, 36)
                 Card.Parent           = ScrollList
                 local cdc = Instance.new("UICorner"); cdc.CornerRadius = UDim.new(0,6); cdc.Parent = Card
 
                 local CardIcon2 = Instance.new("ImageLabel")
-                CardIcon2.Size               = UDim2.new(0, 34, 0, 34)
-                CardIcon2.Position           = UDim2.new(0, 8, 0.5, -17)
+                CardIcon2.Size               = UDim2.new(0, 36, 0, 36)
+                CardIcon2.Position           = UDim2.new(0, 8, 0.5, -18)
                 CardIcon2.Image              = CIcon
                 CardIcon2.BackgroundTransparency = 1
                 CardIcon2.Parent             = Card
 
                 local CardTitle2 = Instance.new("TextLabel")
-                CardTitle2.Size              = UDim2.new(1, -140, 0, 16)
-                CardTitle2.Position          = UDim2.new(0, 48, 0, 8)
+                CardTitle2.Size              = UDim2.new(1, -145, 0, 16)
+                CardTitle2.Position          = UDim2.new(0, 52, 0, 9)
                 CardTitle2.BackgroundTransparency = 1
                 CardTitle2.Text              = CTitle
                 CardTitle2.TextColor3        = Color3.fromRGB(255, 255, 255)
-                CardTitle2.TextSize          = 12
+                CardTitle2.TextSize          = UIScale.ElementFontSize
                 CardTitle2.Font              = Enum.Font.TitilliumWeb
                 CardTitle2.TextXAlignment    = Enum.TextXAlignment.Left
                 CardTitle2.Parent            = Card
 
                 local CardDesc2 = Instance.new("TextLabel")
-                CardDesc2.Size              = UDim2.new(1, -140, 0, 14)
-                CardDesc2.Position          = UDim2.new(0, 48, 0, 26)
+                CardDesc2.Size              = UDim2.new(1, -145, 0, 14)
+                CardDesc2.Position          = UDim2.new(0, 52, 0, 27)
                 CardDesc2.BackgroundTransparency = 1
                 CardDesc2.Text              = CDesc
                 CardDesc2.TextColor3        = Color3.fromRGB(110, 130, 160)
-                CardDesc2.TextSize          = 10
+                CardDesc2.TextSize          = UIScale.ElementFontSize - 2
                 CardDesc2.Font              = Enum.Font.TitilliumWeb
                 CardDesc2.TextXAlignment    = Enum.TextXAlignment.Left
                 CardDesc2.TextTruncate      = Enum.TextTruncate.AtEnd
                 CardDesc2.Parent            = Card
 
                 local ExecBtn = Instance.new("TextButton")
-                ExecBtn.Size             = UDim2.new(0, 65, 0, 26)
-                ExecBtn.Position         = UDim2.new(1, -73, 0.5, -13)
+                ExecBtn.Size             = UDim2.new(0, 68, 0, 28)
+                ExecBtn.Position         = UDim2.new(1, -76, 0.5, -14)
                 ExecBtn.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
                 ExecBtn.Text             = "Execute"
                 ExecBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
-                ExecBtn.TextSize         = 11
+                ExecBtn.TextSize         = UIScale.ElementFontSize - 1
                 ExecBtn.Font             = Enum.Font.TitilliumWeb
                 ExecBtn.Parent           = Card
                 local ebc = Instance.new("UICorner"); ebc.CornerRadius = UDim.new(0,5); ebc.Parent = ExecBtn
@@ -1423,7 +1442,6 @@ function LunoLibrary:CreateWindow(Settings)
         return TabElements
     end
 
-    -- Expose CreateTab publicly (per-window, not global)
     function LunoLibrary:CreateTab(TabName, FixedOrder)
         return CreateTabInternal(TabName, FixedOrder, false)
     end
@@ -1492,14 +1510,12 @@ function LunoLibrary:CreateWindow(Settings)
         end)
     end
 
-    -- FIX #6: Pisahkan logika fly ke connection sendiri,
-    -- hindari memanggil StopFlying() setiap frame
     local FlyConnection = nil
 
     local function StartFlyLoop()
         if FlyConnection then return end
         FlyConnection = RunService.RenderStepped:Connect(function()
-            if not Flying then return end  -- early return, tidak destroy
+            if not Flying then return end
             pcall(function()
                 local char = LocalPlayer.Character
                 if not char then return end
@@ -1538,7 +1554,7 @@ function LunoLibrary:CreateWindow(Settings)
 
                     local df = md:Dot(fwd)
                     local dr = md:Dot(rgt)
-                    if df ~= df then df = 0 end  -- NaN check
+                    if df ~= df then df = 0 end
                     if dr ~= dr then dr = 0 end
 
                     moveVec = camCF.LookVector * df + camCF.RightVector * dr
@@ -1561,7 +1577,7 @@ function LunoLibrary:CreateWindow(Settings)
         RegisterConnection(FlyConnection)
     end
 
-    StartFlyLoop()  -- mulai loop sekali saja
+    StartFlyLoop()
 
     MiscTab:CreateSection("Fly System", {Box = true})
 
@@ -1587,7 +1603,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     MiscTab:CreateSection("Visual ESP Elements", {Box = true})
 
-    -- Box ESP
     local BoxESPEnabled = false
     local function UpdateBoxESP()
         for _, plr in ipairs(Players:GetPlayers()) do
@@ -1620,7 +1635,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    -- Name ESP
     local NameESPEnabled = false
     RegisterConnection(RunService.RenderStepped:Connect(function()
         for _, plr in ipairs(Players:GetPlayers()) do
@@ -1648,7 +1662,6 @@ function LunoLibrary:CreateWindow(Settings)
                             bg.Parent              = head
                             table.insert(ESPStorage, bg)
                         end
-                        -- Update distance
                         local myHRP  = LocalPlayer.Character
                             and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                         local thHRP  = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -1699,7 +1712,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
     RegisterConnection(Players.PlayerRemoving:Connect(function()
-        task.wait()  -- tunggu player benar-benar removed
+        task.wait()
         if PlayerDropdownObj2 then
             PlayerDropdownObj2.Refresh(GetPlayerNames())
         end
@@ -1726,7 +1739,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     MiscTab:CreateSection("Utilities & Protection", {Box = true})
 
-    -- FIX #5: Anti-AFK - tidak double-register connection
     local AntiAFKEnabled = true
     local AntiAFKLoopRunning = false
     local AntiAFKIdleConn2 = nil
@@ -1740,7 +1752,6 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function StartAntiAFK()
-        -- Daftarkan Idled event hanya sekali
         if not AntiAFKIdleConn2 then
             AntiAFKIdleConn2 = RegisterConnection(
                 LocalPlayer.Idled:Connect(function()
@@ -1748,7 +1759,6 @@ function LunoLibrary:CreateWindow(Settings)
                 end)
             )
         end
-        -- Background loop hanya jalan sekali
         if not AntiAFKLoopRunning then
             AntiAFKLoopRunning = true
             task.spawn(function()
@@ -1762,7 +1772,6 @@ function LunoLibrary:CreateWindow(Settings)
 
     local function StopAntiAFK()
         AntiAFKLoopRunning = false
-        -- Connection tetap aktif tapi tida akan pulse karena AntiAFKEnabled=false
     end
 
     MiscTab:CreateToggle({
@@ -1800,7 +1809,7 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    StartAntiAFK()  -- mulai langsung
+    StartAntiAFK()
 
     -- ══════════════════════════════════════════════════════
     -- AUTO CONFIG TAB
@@ -1923,7 +1932,7 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     -- ══════════════════════════════════════════════════════
-    -- FIX #7: HIDDEN PROFILE PAGE (Ditandai Hidden=true)
+    -- HIDDEN PROFILE PAGE
     -- ══════════════════════════════════════════════════════
     local ProfilePage = Instance.new("Frame")
     ProfilePage.Size               = UDim2.new(1, 0, 1, 0)
@@ -1931,8 +1940,6 @@ function LunoLibrary:CreateWindow(Settings)
     ProfilePage.Visible            = false
     ProfilePage.Parent             = ContentContainer
 
-    -- Daftarkan sebagai hidden tab agar SwitchTab tidak hide page lain
-    -- dengan cara yang salah
     local ProfileTabObj = {
         Button = nil,
         Page   = ProfilePage,
@@ -1962,7 +1969,7 @@ function LunoLibrary:CreateWindow(Settings)
         PBtn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
         PBtn.Text             = Text
         PBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
-        PBtn.TextSize         = 12
+        PBtn.TextSize         = UIScale.ElementFontSize
         PBtn.Font             = Enum.Font.TitilliumWeb
         PBtn.Parent           = ProfileScroll2
 
