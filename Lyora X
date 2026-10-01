@@ -1,96 +1,92 @@
+-- ============================================================
+-- LUNO UI LIBRARY v12 - FIXED VERSION
+-- ============================================================
+
 if getgenv().LunoUI_Cleanup then
     getgenv().LunoUI_Cleanup()
 end
 
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local TeleportService = game:GetService("TeleportService")
+local TweenService       = game:GetService("TweenService")
+local UserInputService   = game:GetService("UserInputService")
+local TeleportService    = game:GetService("TeleportService")
 local MarketplaceService = game:GetService("MarketplaceService")
-local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
+local HttpService        = game:GetService("HttpService")
+local RunService         = game:GetService("RunService")
+local Lighting           = game:GetService("Lighting")
+local Players            = game:GetService("Players")
+local CoreGui            = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local Camera      = workspace.CurrentCamera
 
 local ActiveConnections = {}
-local ESPStorage = {}
+local ESPStorage        = {}
 
 local function RegisterConnection(Conn)
     table.insert(ActiveConnections, Conn)
     return Conn
 end
 
--- Detect Device
+-- ── Device Detection ──────────────────────────────────────
 local ViewportSize = Camera.ViewportSize
-local IsTouch = UserInputService.TouchEnabled
-local IsKeyboard = UserInputService.KeyboardEnabled
-local DeviceType = "PC"
+local IsTouch      = UserInputService.TouchEnabled
+local IsKeyboard   = UserInputService.KeyboardEnabled
+local DeviceType   = "PC"
 if IsTouch and not IsKeyboard then
     DeviceType = (ViewportSize.X < 800) and "Mobile" or "Tablet"
 end
 
--- Detect Game Name
+-- ── Game Name ─────────────────────────────────────────────
 local CurrentGameName = "Roblox Game"
 pcall(function()
     local info = MarketplaceService:GetProductInfo(game.PlaceId)
     if info and info.Name then CurrentGameName = info.Name end
 end)
 
--- Universal Clipboard Copy Function
+-- ── Clipboard ─────────────────────────────────────────────
 local function RealSetClipboard(text)
-    if setclipboard then
-        setclipboard(text)
-    elseif toclipboard then
-        toclipboard(text)
-    elseif syn and syn.write_clipboard then
-        syn.write_clipboard(text)
+    if setclipboard then setclipboard(text)
+    elseif toclipboard then toclipboard(text)
+    elseif syn and syn.write_clipboard then syn.write_clipboard(text)
     end
 end
 
--- Safe File Functions
+-- ── Safe File Helpers ─────────────────────────────────────
 local function SafeWriteFile(path, content)
     if writefile then pcall(writefile, path, content) end
 end
-
 local function SafeReadFile(path)
     if readfile and isfile and isfile(path) then
-        local success, result = pcall(readfile, path)
-        if success then return result end
+        local ok, res = pcall(readfile, path)
+        if ok then return res end
     end
     return nil
 end
-
 local function SafeMakeFolder(path)
     if makefolder and isfolder and not isfolder(path) then
         pcall(makefolder, path)
     end
 end
-
 local function SafeListFiles(path)
     if listfiles then
-        local success, result = pcall(listfiles, path)
-        if success then return result end
+        local ok, res = pcall(listfiles, path)
+        if ok then return res end
     end
     return {}
 end
-
 local function SafeDeleteFile(path)
     if delfile and isfile and isfile(path) then
         pcall(delfile, path)
     end
 end
 
+-- ── Parent GUI ────────────────────────────────────────────
+-- FIX #1: Tidak buat ScreenGui baru di dalam fungsi ini
 local function GetParentGui()
     if gethui then
         return gethui()
     elseif syn and syn.protect_gui then
-        local gui = Instance.new("ScreenGui")
-        syn.protect_gui(gui)
-        gui.Parent = CoreGui
-        return gui
+        return CoreGui   -- protect_gui akan dipakai saat MainScreenGui dibuat
     elseif CoreGui:FindFirstChild("RobloxGui") then
         return CoreGui
     else
@@ -98,197 +94,260 @@ local function GetParentGui()
     end
 end
 
-local LunoLibrary = {}
-LunoLibrary.Flags = {}
+-- ── Library Object ────────────────────────────────────────
+local LunoLibrary  = {}
+LunoLibrary.Flags    = {}
 LunoLibrary.Elements = {}
 
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name = "LunoUILibrary_v11"
-MainScreenGui.ResetOnSpawn = false
+MainScreenGui.Name           = "LunoUILibrary_v12"
+MainScreenGui.ResetOnSpawn   = false
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- FIX #1 continued: protect_gui sebelum parent
+if syn and syn.protect_gui then
+    syn.protect_gui(MainScreenGui)
+end
 MainScreenGui.Parent = GetParentGui()
 
 getgenv().LunoUI_Cleanup = function()
-    for _, conn in ipairs(ActiveConnections) do pcall(function() conn:Disconnect() end) end
-    for _, item in pairs(ESPStorage) do pcall(function() item:Destroy() end) end
-    if MainScreenGui then MainScreenGui:Destroy() end
+    for _, conn in ipairs(ActiveConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    for _, item in pairs(ESPStorage) do
+        pcall(function() item:Destroy() end)
+    end
+    if MainScreenGui and MainScreenGui.Parent then
+        MainScreenGui:Destroy()
+    end
     getgenv().LunoUI_Cleanup = nil
 end
 
+-- ══════════════════════════════════════════════════════════
 -- NOTIFICATION SYSTEM
+-- ══════════════════════════════════════════════════════════
 local NotifyContainer = Instance.new("Frame")
-NotifyContainer.Name = "NotifyContainer"
-NotifyContainer.Size = UDim2.new(0, 260, 1, -20)
-NotifyContainer.Position = UDim2.new(1, -270, 0, 10)
+NotifyContainer.Name                = "NotifyContainer"
+NotifyContainer.Size                = UDim2.new(0, 260, 1, -20)
+NotifyContainer.Position            = UDim2.new(1, -270, 0, 10)
 NotifyContainer.BackgroundTransparency = 1
-NotifyContainer.ZIndex = 100
-NotifyContainer.Parent = MainScreenGui
+NotifyContainer.ZIndex              = 100
+NotifyContainer.Parent              = MainScreenGui
 
 local NotifyLayout = Instance.new("UIListLayout")
 NotifyLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-NotifyLayout.Padding = UDim.new(0, 8)
-NotifyLayout.Parent = NotifyContainer
+NotifyLayout.Padding           = UDim.new(0, 8)
+NotifyLayout.Parent            = NotifyContainer
 
 function LunoLibrary:Notify(Settings)
     Settings = Settings or {}
-    local Title = Settings.Title or "Notification"
-    local Content = Settings.Content or "Details..."
+    local Title    = Settings.Title    or "Notification"
+    local Content  = Settings.Content  or "Details..."
     local Duration = Settings.Duration or 3
 
     local Toast = Instance.new("Frame")
-    Toast.Size = UDim2.new(1, 0, 0, 0)
-    Toast.BackgroundColor3 = Color3.fromRGB(14, 20, 34)
-    Toast.ClipsDescendants = true
-    Toast.Parent = NotifyContainer
+    Toast.Size                 = UDim2.new(1, 0, 0, 0)
+    Toast.BackgroundColor3     = Color3.fromRGB(14, 20, 34)
+    Toast.ClipsDescendants     = true
+    Toast.Parent               = NotifyContainer
 
-    local ToastCorner = Instance.new("UICorner") ToastCorner.CornerRadius = UDim.new(0, 8) ToastCorner.Parent = Toast
-    local ToastStroke = Instance.new("UIStroke") ToastStroke.Color = Color3.fromRGB(0, 110, 255) ToastStroke.Thickness = 1 ToastStroke.Transparency = 0.3 ToastStroke.Parent = Toast
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 8); c.Parent = Toast
 
-    local ToastTitle = Instance.new("TextLabel")
-    ToastTitle.Size = UDim2.new(1, -16, 0, 18)
-    ToastTitle.Position = UDim2.new(0, 10, 0, 6)
-    ToastTitle.BackgroundTransparency = 1
-    ToastTitle.Text = Title
-    ToastTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToastTitle.TextSize = 13
-    ToastTitle.Font = Enum.Font.SourceSansBold
-    ToastTitle.TextXAlignment = Enum.TextXAlignment.Left
-    ToastTitle.Parent = Toast
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(0, 110, 255)
+    s.Thickness = 1; s.Transparency = 0.3; s.Parent = Toast
 
-    local ToastContent = Instance.new("TextLabel")
-    ToastContent.Size = UDim2.new(1, -16, 0, 26)
-    ToastContent.Position = UDim2.new(0, 10, 0, 24)
-    ToastContent.BackgroundTransparency = 1
-    ToastContent.Text = Content
-    ToastContent.TextColor3 = Color3.fromRGB(130, 150, 180)
-    ToastContent.TextSize = 11
-    ToastContent.Font = Enum.Font.TitilliumWeb
-    ToastContent.TextXAlignment = Enum.TextXAlignment.Left
-    ToastContent.TextWrapped = true
-    ToastContent.Parent = Toast
+    local TitleLbl = Instance.new("TextLabel")
+    TitleLbl.Size              = UDim2.new(1, -16, 0, 18)
+    TitleLbl.Position          = UDim2.new(0, 10, 0, 6)
+    TitleLbl.BackgroundTransparency = 1
+    TitleLbl.Text              = Title
+    TitleLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
+    TitleLbl.TextSize          = 13
+    TitleLbl.Font              = Enum.Font.SourceSansBold
+    TitleLbl.TextXAlignment    = Enum.TextXAlignment.Left
+    TitleLbl.Parent            = Toast
 
-    TweenService:Create(Toast, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 58)}):Play()
+    local ContentLbl = Instance.new("TextLabel")
+    ContentLbl.Size            = UDim2.new(1, -16, 0, 26)
+    ContentLbl.Position        = UDim2.new(0, 10, 0, 24)
+    ContentLbl.BackgroundTransparency = 1
+    ContentLbl.Text            = Content
+    ContentLbl.TextColor3      = Color3.fromRGB(130, 150, 180)
+    ContentLbl.TextSize        = 11
+    ContentLbl.Font            = Enum.Font.TitilliumWeb
+    ContentLbl.TextXAlignment  = Enum.TextXAlignment.Left
+    ContentLbl.TextWrapped     = true
+    ContentLbl.Parent          = Toast
+
+    TweenService:Create(Toast,
+        TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        {Size = UDim2.new(1, 0, 0, 58)}
+    ):Play()
+
     task.delay(Duration, function()
-        local tw = TweenService:Create(Toast, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(1, 0, 0, 0)})
+        local tw = TweenService:Create(Toast,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+            {Size = UDim2.new(1, 0, 0, 0)}
+        )
         tw:Play()
         tw.Completed:Connect(function() Toast:Destroy() end)
     end)
 end
 
+-- ══════════════════════════════════════════════════════════
+-- CREATE WINDOW
+-- ══════════════════════════════════════════════════════════
 function LunoLibrary:CreateWindow(Settings)
     Settings = Settings or {}
-    local TitleText = Settings.Title or "LUNO"
+    local TitleText    = Settings.Title    or "LUNO"
     local SubTitleText = Settings.SubTitle or "by LUNAR"
     local DiscordInvite = Settings.Discord or "https://discord.gg/lunar"
 
-    local BaseWidth = (DeviceType == "Mobile") and math.clamp(ViewportSize.X - 30, 480, 680) or 800
-    local BaseHeight = (DeviceType == "Mobile") and math.clamp(ViewportSize.Y - 30, 320, 420) or 480
+    local BaseWidth  = (DeviceType == "Mobile")
+        and math.clamp(ViewportSize.X - 30, 480, 680) or 800
+    local BaseHeight = (DeviceType == "Mobile")
+        and math.clamp(ViewportSize.Y - 30, 320, 420) or 480
 
+    -- ── Main Frame ────────────────────────────────────────
     local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, BaseWidth, 0, BaseHeight)
-    MainFrame.Position = UDim2.new(0.5, -BaseWidth/2, 0.5, -BaseHeight/2)
+    MainFrame.Name             = "MainFrame"
+    MainFrame.Size             = UDim2.new(0, BaseWidth, 0, BaseHeight)
+    MainFrame.Position         = UDim2.new(0.5, -BaseWidth/2, 0.5, -BaseHeight/2)
     MainFrame.BackgroundColor3 = Color3.fromRGB(10, 14, 23)
-    MainFrame.BorderSizePixel = 0
+    MainFrame.BorderSizePixel  = 0
     MainFrame.ClipsDescendants = true
-    MainFrame.Parent = MainScreenGui
+    MainFrame.Parent           = MainScreenGui
 
-    local MainCorner = Instance.new("UICorner") MainCorner.CornerRadius = UDim.new(0, 12) MainCorner.Parent = MainFrame
-    local MainStroke = Instance.new("UIStroke") MainStroke.Color = Color3.fromRGB(0, 110, 255) MainStroke.Thickness = 1.2 MainStroke.Transparency = 0.4 MainStroke.Parent = MainFrame
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 12); MainCorner.Parent = MainFrame
 
-    -- Window Dragging
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color       = Color3.fromRGB(0, 110, 255)
+    MainStroke.Thickness   = 1.2
+    MainStroke.Transparency = 0.4
+    MainStroke.Parent      = MainFrame
+
+    -- ── Dragging ──────────────────────────────────────────
     local Dragging, DragInput, DragStart, StartPos
     MainFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            Dragging = true DragStart = input.Position StartPos = MainFrame.Position
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Dragging = false end end)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            Dragging  = true
+            DragStart = input.Position
+            StartPos  = MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    Dragging = false
+                end
+            end)
         end
     end)
     MainFrame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then DragInput = input end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+            DragInput = input
+        end
     end)
     RegisterConnection(UserInputService.InputChanged:Connect(function(input)
         if input == DragInput and Dragging then
             local delta = input.Position - DragStart
-            MainFrame.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + delta.X, StartPos.Y.Scale, StartPos.Y.Offset + delta.Y)
+            MainFrame.Position = UDim2.new(
+                StartPos.X.Scale, StartPos.X.Offset + delta.X,
+                StartPos.Y.Scale, StartPos.Y.Offset + delta.Y
+            )
         end
     end))
 
-    -- Resize Corner Handle
+    -- ── Resize ────────────────────────────────────────────
     local ResizeHitbox = Instance.new("TextButton")
-    ResizeHitbox.Name = "ResizeHitbox"
-    ResizeHitbox.Size = UDim2.new(0, 36, 0, 36)
-    ResizeHitbox.Position = UDim2.new(1, -36, 1, -36)
+    ResizeHitbox.Size               = UDim2.new(0, 36, 0, 36)
+    ResizeHitbox.Position           = UDim2.new(1, -36, 1, -36)
     ResizeHitbox.BackgroundTransparency = 1
-    ResizeHitbox.Text = "◢"
-    ResizeHitbox.TextColor3 = Color3.fromRGB(0, 140, 255)
-    ResizeHitbox.TextSize = 16
-    ResizeHitbox.Font = Enum.Font.SourceSansBold
-    ResizeHitbox.ZIndex = 30
-    ResizeHitbox.Parent = MainFrame
+    ResizeHitbox.Text               = "◢"
+    ResizeHitbox.TextColor3         = Color3.fromRGB(0, 140, 255)
+    ResizeHitbox.TextSize           = 16
+    ResizeHitbox.Font               = Enum.Font.SourceSansBold
+    ResizeHitbox.ZIndex             = 30
+    ResizeHitbox.Parent             = MainFrame
 
-    local Resizing = false
-    local ResizeStart, StartSize
+    local Resizing, ResizeStart, StartSize = false, nil, nil
     local MinSize = Vector2.new(550, 400)
     local MaxSize = Vector2.new(ViewportSize.X - 20, ViewportSize.Y - 20)
 
     ResizeHitbox.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            Resizing = true ResizeStart = input.Position StartSize = MainFrame.AbsoluteSize
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Resizing = false end end)
-        end
-    end)
-    RegisterConnection(UserInputService.InputChanged:Connect(function(input)
-        if Resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - ResizeStart
-            MainFrame.Size = UDim2.new(0, math.clamp(StartSize.X + delta.X, MinSize.X, MaxSize.X), 0, math.clamp(StartSize.Y + delta.Y, MinSize.Y, MaxSize.Y))
-        end
-    end))
-
-    ---------------------------------------------------------
-    -- TRANSPARENT FLOATING BADGE (Default Bold Font)
-    ---------------------------------------------------------
-    local FloatingPopUp = Instance.new("Frame")
-    FloatingPopUp.Name = "LunoFloatingPopUp"
-    FloatingPopUp.Size = UDim2.new(0, 95, 0, 38)
-    FloatingPopUp.Position = UDim2.new(0, 15, 0.25, 0)
-    FloatingPopUp.BackgroundTransparency = 1
-    FloatingPopUp.Visible = (DeviceType ~= "PC")
-    FloatingPopUp.ZIndex = 999
-    FloatingPopUp.Parent = MainScreenGui
-
-    local FloatBtn = Instance.new("TextButton")
-    FloatBtn.Size = UDim2.new(1, 0, 1, 0)
-    FloatBtn.BackgroundTransparency = 1
-    FloatBtn.Text = "LUNO"
-    FloatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    FloatBtn.Font = Enum.Font.SourceSansBold
-    FloatBtn.TextSize = 22
-    FloatBtn.Parent = FloatingPopUp
-
-    local FloatTextStroke = Instance.new("UIStroke")
-    FloatTextStroke.Color = Color3.fromRGB(0, 130, 255)
-    FloatTextStroke.Thickness = 1.8
-    FloatTextStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-    FloatTextStroke.Parent = FloatBtn
-
-    -- Dragging Floating Icon
-    local FloatDragging = false
-    local FloatDragStart, FloatStartPos
-
-    FloatBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            FloatDragging = true
-            FloatDragStart = input.Position
-            FloatStartPos = FloatingPopUp.Position
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            Resizing    = true
+            ResizeStart = input.Position
+            StartSize   = MainFrame.AbsoluteSize
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then FloatDragging = false end
+                if input.UserInputState == Enum.UserInputState.End then
+                    Resizing = false
+                end
             end)
         end
     end)
-
     RegisterConnection(UserInputService.InputChanged:Connect(function(input)
-        if FloatDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if Resizing and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            local delta = input.Position - ResizeStart
+            MainFrame.Size = UDim2.new(0,
+                math.clamp(StartSize.X + delta.X, MinSize.X, MaxSize.X),
+                0,
+                math.clamp(StartSize.Y + delta.Y, MinSize.Y, MaxSize.Y)
+            )
+        end
+    end))
+
+    -- ── Floating Badge (Mobile/Tablet) ────────────────────
+    local FloatingPopUp = Instance.new("Frame")
+    FloatingPopUp.Name                 = "LunoFloatingPopUp"
+    FloatingPopUp.Size                 = UDim2.new(0, 95, 0, 38)
+    FloatingPopUp.Position             = UDim2.new(0, 15, 0.25, 0)
+    FloatingPopUp.BackgroundTransparency = 1
+    FloatingPopUp.Visible              = (DeviceType ~= "PC")
+    FloatingPopUp.ZIndex               = 999
+    FloatingPopUp.Parent               = MainScreenGui
+
+    local FloatBtn = Instance.new("TextButton")
+    FloatBtn.Size                 = UDim2.new(1, 0, 1, 0)
+    FloatBtn.BackgroundTransparency = 1
+    FloatBtn.Text                 = "LUNO"
+    FloatBtn.TextColor3           = Color3.fromRGB(255, 255, 255)
+    FloatBtn.Font                 = Enum.Font.SourceSansBold
+    FloatBtn.TextSize             = 22
+    FloatBtn.Parent               = FloatingPopUp
+
+    local FloatStroke = Instance.new("UIStroke")
+    FloatStroke.Color           = Color3.fromRGB(0, 130, 255)
+    FloatStroke.Thickness       = 1.8
+    FloatStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    FloatStroke.Parent          = FloatBtn
+
+    local FloatDragging = false
+    local FloatDragStart, FloatStartPos
+    FloatBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            FloatDragging  = true
+            FloatDragStart = input.Position
+            FloatStartPos  = FloatingPopUp.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    FloatDragging = false
+                end
+            end)
+        end
+    end)
+    RegisterConnection(UserInputService.InputChanged:Connect(function(input)
+        if FloatDragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
             local delta = input.Position - FloatDragStart
             FloatingPopUp.Position = UDim2.new(
                 FloatStartPos.X.Scale, FloatStartPos.X.Offset + delta.X,
@@ -297,41 +356,47 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- Window Controls
+    -- ── Window Controls ───────────────────────────────────
     local Controls = Instance.new("Frame")
-    Controls.Size = UDim2.new(0, 36, 0, 15)
-    Controls.Position = UDim2.new(1, -40, 0, 10)
+    Controls.Size                 = UDim2.new(0, 36, 0, 15)
+    Controls.Position             = UDim2.new(1, -40, 0, 10)
     Controls.BackgroundTransparency = 1
-    Controls.ZIndex = 15
-    Controls.Parent = MainFrame
+    Controls.ZIndex               = 15
+    Controls.Parent               = MainFrame
 
     local MinDot = Instance.new("TextButton")
-    MinDot.Size = UDim2.new(0, 12, 0, 12)
+    MinDot.Size            = UDim2.new(0, 12, 0, 12)
     MinDot.BackgroundColor3 = Color3.fromRGB(255, 189, 46)
-    MinDot.Text = ""
-    MinDot.Parent = Controls
-    local MinCorner = Instance.new("UICorner") MinCorner.CornerRadius = UDim.new(1, 0) MinCorner.Parent = MinDot
+    MinDot.Text            = ""
+    MinDot.Parent          = Controls
+    local mc = Instance.new("UICorner"); mc.CornerRadius = UDim.new(1,0); mc.Parent = MinDot
 
     local CloseDot = Instance.new("TextButton")
-    CloseDot.Size = UDim2.new(0, 12, 0, 12)
-    CloseDot.Position = UDim2.new(0, 18, 0, 0)
+    CloseDot.Size            = UDim2.new(0, 12, 0, 12)
+    CloseDot.Position        = UDim2.new(0, 18, 0, 0)
     CloseDot.BackgroundColor3 = Color3.fromRGB(255, 95, 86)
-    CloseDot.Text = ""
-    CloseDot.Parent = Controls
-    local CloseCorner = Instance.new("UICorner") CloseCorner.CornerRadius = UDim.new(1, 0) CloseCorner.Parent = CloseDot
+    CloseDot.Text            = ""
+    CloseDot.Parent          = Controls
+    local cc = Instance.new("UICorner"); cc.CornerRadius = UDim.new(1,0); cc.Parent = CloseDot
 
     local IsVisible = true
-    local LastSize = MainFrame.Size
+    local LastSize  = MainFrame.Size
 
     local function ToggleUI()
         IsVisible = not IsVisible
         if IsVisible then
             MainFrame.Visible = true
-            TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = LastSize}):Play()
+            TweenService:Create(MainFrame,
+                TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                {Size = LastSize}
+            ):Play()
             if DeviceType ~= "PC" then FloatingPopUp.Visible = true end
         else
             LastSize = MainFrame.Size
-            local tw = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, LastSize.X.Offset, 0, 0)})
+            local tw = TweenService:Create(MainFrame,
+                TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
+                {Size = UDim2.new(0, LastSize.X.Offset, 0, 0)}
+            )
             tw:Play()
             tw.Completed:Connect(function()
                 if not IsVisible then
@@ -344,652 +409,718 @@ function LunoLibrary:CreateWindow(Settings)
 
     MinDot.MouseButton1Click:Connect(ToggleUI)
     FloatBtn.MouseButton1Click:Connect(ToggleUI)
-    CloseDot.MouseButton1Click:Connect(function() getgenv().LunoUI_Cleanup() end)
+    CloseDot.MouseButton1Click:Connect(function()
+        if getgenv().LunoUI_Cleanup then getgenv().LunoUI_Cleanup() end
+    end)
 
     RegisterConnection(UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and (input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.Insert) then ToggleUI() end
+        if not gpe and (
+            input.KeyCode == Enum.KeyCode.RightControl
+            or input.KeyCode == Enum.KeyCode.Insert
+        ) then
+            ToggleUI()
+        end
     end))
 
-    ---------------------------------------------------------
-    -- LEFT SIDEBAR & HEADER
-    ---------------------------------------------------------
+    -- ── Left Sidebar ──────────────────────────────────────
     local LeftSidebar = Instance.new("Frame")
-    LeftSidebar.Name = "LeftSidebar"
-    LeftSidebar.Size = UDim2.new(0, 160, 1, 0)
+    LeftSidebar.Name             = "LeftSidebar"
+    LeftSidebar.Size             = UDim2.new(0, 160, 1, 0)
     LeftSidebar.BackgroundColor3 = Color3.fromRGB(12, 17, 28)
-    LeftSidebar.BorderSizePixel = 0
+    LeftSidebar.BorderSizePixel  = 0
     LeftSidebar.ClipsDescendants = true
-    LeftSidebar.Parent = MainFrame
+    LeftSidebar.Parent           = MainFrame
 
-    local SidebarCorner = Instance.new("UICorner") SidebarCorner.CornerRadius = UDim.new(0, 12) SidebarCorner.Parent = LeftSidebar
+    local SidebarCorner = Instance.new("UICorner")
+    SidebarCorner.CornerRadius = UDim.new(0, 12)
+    SidebarCorner.Parent       = LeftSidebar
 
+    -- Logo Header
     local LogoHeaderCard = Instance.new("Frame")
-    LogoHeaderCard.Name = "LogoHeaderCard"
-    LogoHeaderCard.Size = UDim2.new(1, -16, 0, 65)
-    LogoHeaderCard.Position = UDim2.new(0, 8, 0, 8)
+    LogoHeaderCard.Name             = "LogoHeaderCard"
+    LogoHeaderCard.Size             = UDim2.new(1, -16, 0, 65)
+    LogoHeaderCard.Position         = UDim2.new(0, 8, 0, 8)
     LogoHeaderCard.BackgroundColor3 = Color3.fromRGB(15, 22, 38)
     LogoHeaderCard.ClipsDescendants = true
-    LogoHeaderCard.Parent = LeftSidebar
+    LogoHeaderCard.Parent           = LeftSidebar
 
-    local LogoCorner = Instance.new("UICorner") LogoCorner.CornerRadius = UDim.new(0, 8) LogoCorner.Parent = LogoHeaderCard
+    local lhc = Instance.new("UICorner"); lhc.CornerRadius = UDim.new(0,8); lhc.Parent = LogoHeaderCard
 
-    local LogoGradient = Instance.new("UIGradient")
-    LogoGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 80, 200)),
+    local LG = Instance.new("UIGradient")
+    LG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(0, 80, 200)),
         ColorSequenceKeypoint.new(0.6, Color3.fromRGB(12, 18, 32)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 110, 255))
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(0, 110, 255)),
     })
-    LogoGradient.Parent = LogoHeaderCard
+    LG.Parent = LogoHeaderCard
 
     local LogoText = Instance.new("TextLabel")
-    LogoText.Size = UDim2.new(1, -20, 0, 22)
-    LogoText.Position = UDim2.new(0, 12, 0, 12)
+    LogoText.Size              = UDim2.new(1, -20, 0, 22)
+    LogoText.Position          = UDim2.new(0, 12, 0, 12)
     LogoText.BackgroundTransparency = 1
-    LogoText.Text = TitleText
-    LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LogoText.TextSize = 20
-    LogoText.Font = Enum.Font.SourceSansBold
-    LogoText.TextXAlignment = Enum.TextXAlignment.Left
-    LogoText.Parent = LogoHeaderCard
+    LogoText.Text              = TitleText
+    LogoText.TextColor3        = Color3.fromRGB(255, 255, 255)
+    LogoText.TextSize          = 20
+    LogoText.Font              = Enum.Font.SourceSansBold
+    LogoText.TextXAlignment    = Enum.TextXAlignment.Left
+    LogoText.Parent            = LogoHeaderCard
 
-    local LogoSubText = Instance.new("TextLabel")
-    LogoSubText.Size = UDim2.new(1, -20, 0, 14)
-    LogoSubText.Position = UDim2.new(0, 12, 0, 34)
-    LogoSubText.BackgroundTransparency = 1
-    LogoSubText.Text = SubTitleText
-    LogoSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
-    LogoSubText.TextSize = 12
-    LogoSubText.Font = Enum.Font.SourceSansBold
-    LogoSubText.TextXAlignment = Enum.TextXAlignment.Left
-    LogoSubText.Parent = LogoHeaderCard
+    local LogoSub = Instance.new("TextLabel")
+    LogoSub.Size              = UDim2.new(1, -20, 0, 14)
+    LogoSub.Position          = UDim2.new(0, 12, 0, 34)
+    LogoSub.BackgroundTransparency = 1
+    LogoSub.Text              = SubTitleText
+    LogoSub.TextColor3        = Color3.fromRGB(0, 170, 255)
+    LogoSub.TextSize          = 12
+    LogoSub.Font              = Enum.Font.SourceSansBold
+    LogoSub.TextXAlignment    = Enum.TextXAlignment.Left
+    LogoSub.Parent            = LogoHeaderCard
 
-    -- DISCORD BUTTON (Clean Centered Default Bold)
+    -- Discord Button
     local DiscordBtn = Instance.new("TextButton")
-    DiscordBtn.Name = "DiscordBtn"
-    DiscordBtn.Size = UDim2.new(1, -16, 0, 32)
-    DiscordBtn.Position = UDim2.new(0, 8, 1, -94)
+    DiscordBtn.Name             = "DiscordBtn"
+    DiscordBtn.Size             = UDim2.new(1, -16, 0, 32)
+    DiscordBtn.Position         = UDim2.new(0, 8, 1, -94)
     DiscordBtn.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
-    DiscordBtn.Text = "Discord"
-    DiscordBtn.TextColor3 = Color3.fromRGB(120, 180, 255)
-    DiscordBtn.Font = Enum.Font.SourceSansBold
-    DiscordBtn.TextSize = 14
-    DiscordBtn.TextXAlignment = Enum.TextXAlignment.Center
-    DiscordBtn.Parent = LeftSidebar
+    DiscordBtn.Text             = "Discord"
+    DiscordBtn.TextColor3       = Color3.fromRGB(120, 180, 255)
+    DiscordBtn.Font             = Enum.Font.SourceSansBold
+    DiscordBtn.TextSize         = 14
+    DiscordBtn.TextXAlignment   = Enum.TextXAlignment.Center
+    DiscordBtn.Parent           = LeftSidebar
 
-    local DiscordCorner = Instance.new("UICorner") DiscordCorner.CornerRadius = UDim.new(0, 6) DiscordCorner.Parent = DiscordBtn
-    local DiscordStroke = Instance.new("UIStroke") DiscordStroke.Color = Color3.fromRGB(0, 110, 255) DiscordStroke.Thickness = 1 DiscordStroke.Transparency = 0.7 DiscordStroke.Parent = DiscordBtn
+    local dc = Instance.new("UICorner"); dc.CornerRadius = UDim.new(0,6); dc.Parent = DiscordBtn
+    local ds = Instance.new("UIStroke")
+    ds.Color = Color3.fromRGB(0,110,255); ds.Thickness = 1; ds.Transparency = 0.7; ds.Parent = DiscordBtn
 
     DiscordBtn.MouseButton1Click:Connect(function()
         RealSetClipboard(DiscordInvite)
         LunoLibrary:Notify({
-            Title = "Discord Invite",
-            Content = "Successfully copied Discord link to clipboard!",
+            Title   = "Discord Invite",
+            Content = "Successfully copied Discord link!",
             Duration = 3
         })
     end)
 
-    -- USER PROFILE CARD
+    -- User Card
     local UserCard = Instance.new("TextButton")
-    UserCard.Size = UDim2.new(1, -16, 0, 48)
-    UserCard.Position = UDim2.new(0, 8, 1, -56)
+    UserCard.Size             = UDim2.new(1, -16, 0, 48)
+    UserCard.Position         = UDim2.new(0, 8, 1, -56)
     UserCard.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
-    UserCard.Text = ""
-    UserCard.AutoButtonColor = false
-    UserCard.Parent = LeftSidebar
+    UserCard.Text             = ""
+    UserCard.AutoButtonColor  = false
+    UserCard.Parent           = LeftSidebar
 
-    local UserCorner = Instance.new("UICorner") UserCorner.CornerRadius = UDim.new(0, 8) UserCorner.Parent = UserCard
-    local UserStroke = Instance.new("UIStroke") UserStroke.Color = Color3.fromRGB(0, 102, 255) UserStroke.Thickness = 1 UserStroke.Transparency = 0.6 UserStroke.Parent = UserCard
+    local uc = Instance.new("UICorner"); uc.CornerRadius = UDim.new(0,8); uc.Parent = UserCard
+    local us = Instance.new("UIStroke")
+    us.Color = Color3.fromRGB(0,102,255); us.Thickness = 1; us.Transparency = 0.6; us.Parent = UserCard
 
     local UserAvatar = Instance.new("ImageLabel")
-    UserAvatar.Size = UDim2.new(0, 32, 0, 32)
-    UserAvatar.Position = UDim2.new(0, 8, 0.5, -16)
+    UserAvatar.Size               = UDim2.new(0, 32, 0, 32)
+    UserAvatar.Position           = UDim2.new(0, 8, 0.5, -16)
     UserAvatar.BackgroundTransparency = 1
-    UserAvatar.Parent = UserCard
-    local AvatarCorner = Instance.new("UICorner") AvatarCorner.CornerRadius = UDim.new(1, 0) AvatarCorner.Parent = UserAvatar
+    UserAvatar.Parent             = UserCard
+    local ac = Instance.new("UICorner"); ac.CornerRadius = UDim.new(1,0); ac.Parent = UserAvatar
 
     task.spawn(function()
-        UserAvatar.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+        UserAvatar.Image = Players:GetUserThumbnailAsync(
+            LocalPlayer.UserId,
+            Enum.ThumbnailType.HeadShot,
+            Enum.ThumbnailSize.Size150x150
+        )
     end)
 
     local UsernameLbl = Instance.new("TextLabel")
-    UsernameLbl.Size = UDim2.new(1, -48, 0, 14)
-    UsernameLbl.Position = UDim2.new(0, 44, 0, 9)
+    UsernameLbl.Size              = UDim2.new(1, -48, 0, 14)
+    UsernameLbl.Position          = UDim2.new(0, 44, 0, 9)
     UsernameLbl.BackgroundTransparency = 1
-    UsernameLbl.Text = LocalPlayer.DisplayName
-    UsernameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    UsernameLbl.TextSize = 12
-    UsernameLbl.Font = Enum.Font.TitilliumWeb
-    UsernameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    UsernameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-    UsernameLbl.Parent = UserCard
+    UsernameLbl.Text              = LocalPlayer.DisplayName
+    UsernameLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
+    UsernameLbl.TextSize          = 12
+    UsernameLbl.Font              = Enum.Font.TitilliumWeb
+    UsernameLbl.TextXAlignment    = Enum.TextXAlignment.Left
+    UsernameLbl.TextTruncate      = Enum.TextTruncate.AtEnd
+    UsernameLbl.Parent            = UserCard
 
     local UserGameLbl = Instance.new("TextLabel")
-    UserGameLbl.Size = UDim2.new(1, -48, 0, 12)
-    UserGameLbl.Position = UDim2.new(0, 44, 0, 24)
+    UserGameLbl.Size              = UDim2.new(1, -48, 0, 12)
+    UserGameLbl.Position          = UDim2.new(0, 44, 0, 24)
     UserGameLbl.BackgroundTransparency = 1
-    UserGameLbl.Text = CurrentGameName
-    UserGameLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
-    UserGameLbl.TextSize = 10
-    UserGameLbl.Font = Enum.Font.TitilliumWeb
-    UserGameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    UserGameLbl.TextTruncate = Enum.TextTruncate.AtEnd
-    UserGameLbl.Parent = UserCard
+    UserGameLbl.Text              = CurrentGameName
+    UserGameLbl.TextColor3        = Color3.fromRGB(0, 170, 255)
+    UserGameLbl.TextSize          = 10
+    UserGameLbl.Font              = Enum.Font.TitilliumWeb
+    UserGameLbl.TextXAlignment    = Enum.TextXAlignment.Left
+    UserGameLbl.TextTruncate      = Enum.TextTruncate.AtEnd
+    UserGameLbl.Parent            = UserCard
 
-    ---------------------------------------------------------
-    -- NAVIGATION CONTAINER
-    ---------------------------------------------------------
+    -- Nav Container
     local NavContainer = Instance.new("ScrollingFrame")
-    NavContainer.Name = "NavContainer"
-    NavContainer.Size = UDim2.new(1, -16, 1, -180)
-    NavContainer.Position = UDim2.new(0, 8, 0, 80)
+    NavContainer.Name                   = "NavContainer"
+    NavContainer.Size                   = UDim2.new(1, -16, 1, -180)
+    NavContainer.Position               = UDim2.new(0, 8, 0, 80)
     NavContainer.BackgroundTransparency = 1
-    NavContainer.BorderSizePixel = 0
-    NavContainer.ScrollBarThickness = 2
-    NavContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
-    NavContainer.ScrollingDirection = Enum.ScrollingDirection.Y
-    NavContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-    NavContainer.ClipsDescendants = true
-    NavContainer.Parent = LeftSidebar
+    NavContainer.BorderSizePixel        = 0
+    NavContainer.ScrollBarThickness     = 2
+    NavContainer.ScrollBarImageColor3   = Color3.fromRGB(0, 102, 255)
+    NavContainer.ScrollingDirection     = Enum.ScrollingDirection.Y
+    NavContainer.CanvasSize             = UDim2.new(0, 0, 0, 0)
+    NavContainer.ClipsDescendants       = true
+    NavContainer.Parent                 = LeftSidebar
 
     local NavList = Instance.new("UIListLayout")
-    NavList.Padding = UDim.new(0, 5)
-    NavList.SortOrder = Enum.SortOrder.LayoutOrder
-    NavList.Parent = NavContainer
+    NavList.Padding    = UDim.new(0, 5)
+    NavList.SortOrder  = Enum.SortOrder.LayoutOrder
+    NavList.Parent     = NavContainer
 
     RegisterConnection(NavList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         NavContainer.CanvasSize = UDim2.new(0, 0, 0, NavList.AbsoluteContentSize.Y + 10)
     end))
 
-    ---------------------------------------------------------
-    -- TOP BANNER
-    ---------------------------------------------------------
+    -- Banner
     local Banner = Instance.new("Frame")
-    Banner.Size = UDim2.new(1, -170, 0, 65)
-    Banner.Position = UDim2.new(0, 165, 0, 8)
+    Banner.Size             = UDim2.new(1, -170, 0, 65)
+    Banner.Position         = UDim2.new(0, 165, 0, 8)
     Banner.BackgroundColor3 = Color3.fromRGB(15, 22, 38)
     Banner.ClipsDescendants = true
-    Banner.Parent = MainFrame
+    Banner.Parent           = MainFrame
 
-    local BannerCorner = Instance.new("UICorner") BannerCorner.CornerRadius = UDim.new(0, 8) BannerCorner.Parent = Banner
-    local BannerGradient = Instance.new("UIGradient")
-    BannerGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 80, 200)),
+    local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0,8); bc.Parent = Banner
+
+    local BG = Instance.new("UIGradient")
+    BG.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(0, 80, 200)),
         ColorSequenceKeypoint.new(0.6, Color3.fromRGB(12, 18, 32)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 110, 255))
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(0, 110, 255)),
     })
-    BannerGradient.Parent = Banner
+    BG.Parent = Banner
 
     local BannerText = Instance.new("TextLabel")
-    BannerText.Size = UDim2.new(1, -20, 0, 22)
-    BannerText.Position = UDim2.new(0, 15, 0, 12)
+    BannerText.Size              = UDim2.new(1, -20, 0, 22)
+    BannerText.Position          = UDim2.new(0, 15, 0, 12)
     BannerText.BackgroundTransparency = 1
-    BannerText.Text = TitleText .. " " .. SubTitleText
-    BannerText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    BannerText.TextSize = 20
-    BannerText.Font = Enum.Font.SourceSansBold
-    BannerText.TextXAlignment = Enum.TextXAlignment.Left
-    BannerText.Parent = Banner
+    BannerText.Text              = TitleText .. " " .. SubTitleText
+    BannerText.TextColor3        = Color3.fromRGB(255, 255, 255)
+    BannerText.TextSize          = 20
+    BannerText.Font              = Enum.Font.SourceSansBold
+    BannerText.TextXAlignment    = Enum.TextXAlignment.Left
+    BannerText.Parent            = Banner
 
-    local BannerSubText = Instance.new("TextLabel")
-    BannerSubText.Size = UDim2.new(1, -20, 0, 14)
-    BannerSubText.Position = UDim2.new(0, 15, 0, 34)
-    BannerSubText.BackgroundTransparency = 1
-    BannerSubText.Text = "MORE THAN JUST SCRIPTS."
-    BannerSubText.TextColor3 = Color3.fromRGB(0, 170, 255)
-    BannerSubText.TextSize = 11
-    BannerSubText.Font = Enum.Font.TitilliumWeb
-    BannerSubText.TextXAlignment = Enum.TextXAlignment.Left
-    BannerSubText.Parent = Banner
+    local BannerSub = Instance.new("TextLabel")
+    BannerSub.Size              = UDim2.new(1, -20, 0, 14)
+    BannerSub.Position          = UDim2.new(0, 15, 0, 34)
+    BannerSub.BackgroundTransparency = 1
+    BannerSub.Text              = "MORE THAN JUST SCRIPTS."
+    BannerSub.TextColor3        = Color3.fromRGB(0, 170, 255)
+    BannerSub.TextSize          = 11
+    BannerSub.Font              = Enum.Font.TitilliumWeb
+    BannerSub.TextXAlignment    = Enum.TextXAlignment.Left
+    BannerSub.Parent            = Banner
 
-    ---------------------------------------------------------
-    -- CONTENT CONTAINER & TAB LOGIC
-    ---------------------------------------------------------
+    -- Content Container
     local ContentContainer = Instance.new("Frame")
-    ContentContainer.Size = UDim2.new(1, -170, 1, -82)
-    ContentContainer.Position = UDim2.new(0, 165, 0, 78)
+    ContentContainer.Size               = UDim2.new(1, -170, 1, -82)
+    ContentContainer.Position           = UDim2.new(0, 165, 0, 78)
     ContentContainer.BackgroundTransparency = 1
-    ContentContainer.Parent = MainFrame
+    ContentContainer.Parent             = MainFrame
 
-    local Tabs = {}
-    local ActiveTab = nil
+    -- ── Tab System ────────────────────────────────────────
+    local Tabs           = {}
+    local ActiveTab      = nil
     local UserTabCounter = 0
 
+    -- FIX #7: SwitchTab harus skip tab yang tidak punya Button (hidden tabs)
     local function SwitchTab(TargetTab)
         for _, tab in pairs(Tabs) do
             if tab.Button then
                 tab.Button.BackgroundTransparency = 1
                 tab.Button.TextColor3 = Color3.fromRGB(130, 150, 180)
             end
-            tab.Page.Visible = false
+            -- Hanya hide tab yang BUKAN hidden tab
+            if not tab.Hidden then
+                tab.Page.Visible = false
+            end
+        end
+        -- Jika target adalah hidden tab, sembunyikan semua page lain
+        if TargetTab.Hidden then
+            for _, tab in pairs(Tabs) do
+                tab.Page.Visible = false
+            end
         end
         if TargetTab.Button then
             TargetTab.Button.BackgroundTransparency = 0
-            TargetTab.Button.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
-            TargetTab.Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            TargetTab.Button.BackgroundColor3       = Color3.fromRGB(0, 102, 255)
+            TargetTab.Button.TextColor3             = Color3.fromRGB(255, 255, 255)
         end
         TargetTab.Page.Visible = true
         ActiveTab = TargetTab
     end
 
-    function LunoLibrary:CreateTab(TabName, FixedOrder)
+    -- ── CreateTab ─────────────────────────────────────────
+    -- FIX #2: CreateTab sekarang benar-benar per-window (tidak global)
+    local function CreateTabInternal(TabName, FixedOrder, IsHidden)
         local LayoutOrderValue = FixedOrder or (UserTabCounter + 1)
         if not FixedOrder then UserTabCounter = UserTabCounter + 1 end
 
-        local TabButton = Instance.new("TextButton")
-        TabButton.Size = UDim2.new(1, 0, 0, 32)
-        TabButton.BackgroundColor3 = Color3.fromRGB(18, 26, 42)
-        TabButton.BackgroundTransparency = 1
-        TabButton.Text = "   " .. TabName
-        TabButton.TextColor3 = Color3.fromRGB(130, 150, 180)
-        TabButton.TextSize = 12
-        TabButton.Font = Enum.Font.TitilliumWeb
-        TabButton.TextXAlignment = Enum.TextXAlignment.Left
-        TabButton.LayoutOrder = LayoutOrderValue
-        TabButton.Parent = NavContainer
+        local TabButton = nil
+        if not IsHidden then
+            TabButton = Instance.new("TextButton")
+            TabButton.Size                 = UDim2.new(1, 0, 0, 32)
+            TabButton.BackgroundColor3     = Color3.fromRGB(18, 26, 42)
+            TabButton.BackgroundTransparency = 1
+            TabButton.Text                 = "   " .. TabName
+            TabButton.TextColor3           = Color3.fromRGB(130, 150, 180)
+            TabButton.TextSize             = 12
+            TabButton.Font                 = Enum.Font.TitilliumWeb
+            TabButton.TextXAlignment       = Enum.TextXAlignment.Left
+            TabButton.LayoutOrder          = LayoutOrderValue
+            TabButton.Parent               = NavContainer
 
-        local TabCorner = Instance.new("UICorner") TabCorner.CornerRadius = UDim.new(0, 6) TabCorner.Parent = TabButton
+            local tc = Instance.new("UICorner")
+            tc.CornerRadius = UDim.new(0, 6); tc.Parent = TabButton
+        end
 
         local TabPage = Instance.new("Frame")
-        TabPage.Size = UDim2.new(1, 0, 1, 0)
+        TabPage.Size               = UDim2.new(1, 0, 1, 0)
         TabPage.BackgroundTransparency = 1
-        TabPage.Visible = false
-        TabPage.Parent = ContentContainer
+        TabPage.Visible            = false
+        TabPage.Parent             = ContentContainer
 
-        local TabObj = { Button = TabButton, Page = TabPage }
+        local TabObj = {
+            Button  = TabButton,
+            Page    = TabPage,
+            Hidden  = IsHidden or false,
+        }
         Tabs[TabName] = TabObj
 
-        if not FixedOrder and UserTabCounter == 1 then
+        -- Auto-select first real tab
+        if not IsHidden and UserTabCounter == 1 then
             SwitchTab(TabObj)
         end
 
-        TabButton.MouseButton1Click:Connect(function() SwitchTab(TabObj) end)
+        if TabButton then
+            TabButton.MouseButton1Click:Connect(function() SwitchTab(TabObj) end)
+        end
 
+        -- ── Tab Elements ──────────────────────────────────
         local TabElements = {}
-        local ScrollElements = Instance.new("ScrollingFrame")
-        ScrollElements.Size = UDim2.new(1, 0, 1, 0)
-        ScrollElements.BackgroundTransparency = 1
-        ScrollElements.BorderSizePixel = 0
-        ScrollElements.ScrollBarThickness = 3
-        ScrollElements.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
-        ScrollElements.Parent = TabPage
 
-        ---------------------------------------------------------
-        -- FIX: Padding biar box/element ga nempel ke sidebar
-        -- kiri maupun scrollbar kanan (dulu ScrollElements.Size
-        -- cuma (1,-10,1,0) tanpa padding sama sekali)
-        ---------------------------------------------------------
+        local ScrollElements = Instance.new("ScrollingFrame")
+        ScrollElements.Size                 = UDim2.new(1, 0, 1, 0)
+        ScrollElements.BackgroundTransparency = 1
+        ScrollElements.BorderSizePixel      = 0
+        ScrollElements.ScrollBarThickness   = 3
+        ScrollElements.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
+        ScrollElements.Parent               = TabPage
+
         local ScrollPadding = Instance.new("UIPadding")
-        ScrollPadding.PaddingLeft = UDim.new(0, 10)
-        ScrollPadding.PaddingRight = UDim.new(0, 14)
-        ScrollPadding.PaddingTop = UDim.new(0, 4)
+        ScrollPadding.PaddingLeft   = UDim.new(0, 10)
+        ScrollPadding.PaddingRight  = UDim.new(0, 14)
+        ScrollPadding.PaddingTop    = UDim.new(0, 4)
         ScrollPadding.PaddingBottom = UDim.new(0, 10)
-        ScrollPadding.Parent = ScrollElements
+        ScrollPadding.Parent        = ScrollElements
 
         local ElementsLayout = Instance.new("UIListLayout")
-        ElementsLayout.Padding = UDim.new(0, 4)
+        ElementsLayout.Padding   = UDim.new(0, 4)
         ElementsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        ElementsLayout.Parent = ScrollElements
+        ElementsLayout.Parent    = ScrollElements
 
-        ---------------------------------------------------------
-        -- Container tracking + guaranteed ordering + auto
-        -- canvas resize + BOX GROUPING STYLE SYSTEM
-        ---------------------------------------------------------
-        local CurrentContainer = ScrollElements
-        local OrderCounter = 0
+        local CurrentContainer  = ScrollElements
+        local OrderCounter      = 0
+        local InsideBox         = false
+        local CurrentBoxRowCount = 0
+
         local function NextOrder()
             OrderCounter = OrderCounter + 1
             return OrderCounter
         end
 
-        -- BOX STYLE STATE
-        local InsideBox = false
-        local CurrentBoxRowCount = 0
+        local function RefreshCanvas()
+            ScrollElements.CanvasSize = UDim2.new(0, 0, 0,
+                ElementsLayout.AbsoluteContentSize.Y + 8)
+        end
 
+        RegisterConnection(ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(RefreshCanvas))
+
+        -- FIX #4: StyleRowForBox dengan Divider yang diposisikan benar
         local function StyleRowForBox(frame)
-            if InsideBox then
-                frame.BackgroundTransparency = 1
-                frame.Size = UDim2.new(1, 0, frame.Size.Y.Scale, frame.Size.Y.Offset)
-                for _, c in ipairs(frame:GetChildren()) do
-                    if c:IsA("UICorner") then c:Destroy() end
-                end
-                CurrentBoxRowCount = CurrentBoxRowCount + 1
-                if CurrentBoxRowCount > 1 then
-                    local Divider = Instance.new("Frame")
-                    Divider.Name = "RowDivider"
-                    Divider.Size = UDim2.new(1, 0, 0, 1)
-                    Divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    Divider.BackgroundTransparency = 0.93
-                    Divider.BorderSizePixel = 0
-                    Divider.ZIndex = (frame.ZIndex or 1) + 1
-                    Divider.Parent = frame
-                end
+            if not InsideBox then return end
+
+            frame.BackgroundTransparency = 1
+            for _, c in ipairs(frame:GetChildren()) do
+                if c:IsA("UICorner") then c:Destroy() end
+            end
+
+            CurrentBoxRowCount = CurrentBoxRowCount + 1
+
+            if CurrentBoxRowCount > 1 then
+                -- Divider diparent ke container, BUKAN ke frame itu sendiri
+                -- supaya tidak overlap dengan konten frame
+                local Divider = Instance.new("Frame")
+                Divider.Name                = "RowDivider"
+                Divider.Size                = UDim2.new(1, 0, 0, 1)
+                Divider.BackgroundColor3    = Color3.fromRGB(255, 255, 255)
+                Divider.BackgroundTransparency = 0.9
+                Divider.BorderSizePixel     = 0
+                Divider.LayoutOrder         = frame.LayoutOrder - 1  -- sebelum frame
+                Divider.Parent              = CurrentContainer
             end
         end
 
-        RegisterConnection(ElementsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
-        end))
+        -- ── Section ───────────────────────────────────────
+        function TabElements:CreateSection(SectionName, Opts)
+            Opts = Opts or {}
+            local UseBox = Opts.Box or false
 
-        -- Section Header (SUPPORTS Box = true, WITH CLEAN GROUPED STYLE)
-        function TabElements:CreateSection(SectionName, Settings)
-            Settings = Settings or {}
-            local UseBox = Settings.Box or false
-
-            -- A normal (non-box) section always resets flow back to the
-            -- tab's main list, exactly matching original behavior.
-            CurrentContainer = ScrollElements
-            InsideBox = false
-            CurrentBoxRowCount = 0
+            -- Reset ke root
+            CurrentContainer     = ScrollElements
+            InsideBox            = false
+            CurrentBoxRowCount   = 0
 
             local SecFrame = Instance.new("Frame")
-            SecFrame.Size = UDim2.new(1, 0, 0, 20)
+            SecFrame.Size               = UDim2.new(1, 0, 0, 20)
             SecFrame.BackgroundTransparency = 1
-            SecFrame.LayoutOrder = NextOrder()
-            SecFrame.Parent = ScrollElements
+            SecFrame.LayoutOrder        = NextOrder()
+            SecFrame.Parent             = ScrollElements
 
             local SecLbl = Instance.new("TextLabel")
-            SecLbl.Size = UDim2.new(1, 0, 1, 0)
+            SecLbl.Size              = UDim2.new(1, 0, 1, 0)
             SecLbl.BackgroundTransparency = 1
-            SecLbl.Text = string.upper(SectionName)
-            SecLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
-            SecLbl.TextSize = 12
-            SecLbl.Font = Enum.Font.SourceSansBold
-            SecLbl.TextXAlignment = Enum.TextXAlignment.Left
-            SecLbl.Parent = SecFrame
+            SecLbl.Text              = string.upper(SectionName)
+            SecLbl.TextColor3        = Color3.fromRGB(0, 170, 255)
+            SecLbl.TextSize          = 12
+            SecLbl.Font              = Enum.Font.SourceSansBold
+            SecLbl.TextXAlignment    = Enum.TextXAlignment.Left
+            SecLbl.Parent            = SecFrame
 
             if UseBox then
                 local BoxFrame = Instance.new("Frame")
-                BoxFrame.Size = UDim2.new(1, 0, 0, 0)
-                BoxFrame.AutomaticSize = Enum.AutomaticSize.Y
+                BoxFrame.Size             = UDim2.new(1, 0, 0, 0)
+                BoxFrame.AutomaticSize    = Enum.AutomaticSize.Y
                 BoxFrame.BackgroundColor3 = Color3.fromRGB(13, 18, 30)
-                BoxFrame.BorderSizePixel = 0
+                BoxFrame.BorderSizePixel  = 0
                 BoxFrame.ClipsDescendants = true
-                BoxFrame.LayoutOrder = NextOrder()
-                BoxFrame.Parent = ScrollElements
+                BoxFrame.LayoutOrder      = NextOrder()
+                BoxFrame.Parent           = ScrollElements
 
-                local BoxCorner = Instance.new("UICorner") BoxCorner.CornerRadius = UDim.new(0, 8) BoxCorner.Parent = BoxFrame
-                local BoxStroke = Instance.new("UIStroke") BoxStroke.Color = Color3.fromRGB(0, 90, 200) BoxStroke.Thickness = 1 BoxStroke.Transparency = 0.55 BoxStroke.Parent = BoxFrame
+                local bxc = Instance.new("UICorner")
+                bxc.CornerRadius = UDim.new(0, 8); bxc.Parent = BoxFrame
 
-                local BoxPadding = Instance.new("UIPadding")
-                BoxPadding.PaddingTop = UDim.new(0, 2)
-                BoxPadding.PaddingBottom = UDim.new(0, 2)
-                BoxPadding.Parent = BoxFrame
+                local bxs = Instance.new("UIStroke")
+                bxs.Color       = Color3.fromRGB(0, 90, 200)
+                bxs.Thickness   = 1
+                bxs.Transparency = 0.55
+                bxs.Parent      = BoxFrame
 
-                local BoxLayout = Instance.new("UIListLayout")
-                BoxLayout.Padding = UDim.new(0, 0)
-                BoxLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                BoxLayout.Parent = BoxFrame
+                local bxp = Instance.new("UIPadding")
+                bxp.PaddingTop    = UDim.new(0, 2)
+                bxp.PaddingBottom = UDim.new(0, 2)
+                bxp.Parent        = BoxFrame
 
-                -- All elements created after this call (until the next
-                -- CreateSection) will parent themselves inside this box
-                -- AND get the clean grouped-row styling applied.
-                CurrentContainer = BoxFrame
-                InsideBox = true
-                CurrentBoxRowCount = 0
+                local bxl = Instance.new("UIListLayout")
+                bxl.Padding   = UDim.new(0, 0)
+                bxl.SortOrder = Enum.SortOrder.LayoutOrder
+                bxl.Parent    = BoxFrame
+
+                CurrentContainer     = BoxFrame
+                InsideBox            = true
+                CurrentBoxRowCount   = 0
             end
 
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+            RefreshCanvas()
         end
 
-        -- Button
-        function TabElements:CreateButton(Settings)
-            local Name = Settings.Title or Settings.Name or "Button"
-            local Callback = Settings.Callback or function() end
+        -- ── Button ────────────────────────────────────────
+        function TabElements:CreateButton(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title or Opts.Name or "Button"
+            local Callback = Opts.Callback or function() end
 
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, 30)
+            Btn.Size             = UDim2.new(1, 0, 0, 30)
             Btn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            Btn.Text = Name
-            Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Btn.TextSize = 12
-            Btn.Font = Enum.Font.TitilliumWeb
-            Btn.LayoutOrder = NextOrder()
-            Btn.Parent = CurrentContainer
+            Btn.Text             = Name
+            Btn.TextColor3       = Color3.fromRGB(255, 255, 255)
+            Btn.TextSize         = 12
+            Btn.Font             = Enum.Font.TitilliumWeb
+            Btn.LayoutOrder      = NextOrder()
+            Btn.Parent           = CurrentContainer
 
-            local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
+            if not InsideBox then
+                local bc2 = Instance.new("UICorner")
+                bc2.CornerRadius = UDim.new(0, 6); bc2.Parent = Btn
+            end
             StyleRowForBox(Btn)
-
             Btn.MouseButton1Click:Connect(Callback)
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+            RefreshCanvas()
         end
 
-        -- Toggle
-        function TabElements:CreateToggle(Settings)
-            local Name = Settings.Title or Settings.Name or "Toggle"
-            local Default = Settings.Default or false
-            local Flag = Settings.Flag or Name
-            local Callback = Settings.Callback or function() end
-            local Toggled = Default
+        -- ── Toggle ────────────────────────────────────────
+        function TabElements:CreateToggle(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title or Opts.Name or "Toggle"
+            local Default  = Opts.Default or false
+            local Flag     = Opts.Flag or Name
+            local Callback = Opts.Callback or function() end
+            local Toggled  = Default
 
             LunoLibrary.Flags[Flag] = Toggled
 
             local ToggleFrame = Instance.new("Frame")
-            ToggleFrame.Size = UDim2.new(1, 0, 0, 30)
+            ToggleFrame.Size             = UDim2.new(1, 0, 0, 30)
             ToggleFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            ToggleFrame.LayoutOrder = NextOrder()
-            ToggleFrame.Parent = CurrentContainer
+            ToggleFrame.LayoutOrder      = NextOrder()
+            ToggleFrame.Parent           = CurrentContainer
 
-            local ToggleCorner = Instance.new("UICorner") ToggleCorner.CornerRadius = UDim.new(0, 6) ToggleCorner.Parent = ToggleFrame
+            if not InsideBox then
+                local tc2 = Instance.new("UICorner")
+                tc2.CornerRadius = UDim.new(0, 6); tc2.Parent = ToggleFrame
+            end
             StyleRowForBox(ToggleFrame)
 
             local ToggleLbl = Instance.new("TextLabel")
-            ToggleLbl.Size = UDim2.new(1, -50, 1, 0)
-            ToggleLbl.Position = UDim2.new(0, 10, 0, 0)
+            ToggleLbl.Size              = UDim2.new(1, -50, 1, 0)
+            ToggleLbl.Position          = UDim2.new(0, 10, 0, 0)
             ToggleLbl.BackgroundTransparency = 1
-            ToggleLbl.Text = Name
-            ToggleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-            ToggleLbl.TextSize = 12
-            ToggleLbl.Font = Enum.Font.TitilliumWeb
-            ToggleLbl.TextXAlignment = Enum.TextXAlignment.Left
-            ToggleLbl.Parent = ToggleFrame
+            ToggleLbl.Text              = Name
+            ToggleLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
+            ToggleLbl.TextSize          = 12
+            ToggleLbl.Font              = Enum.Font.TitilliumWeb
+            ToggleLbl.TextXAlignment    = Enum.TextXAlignment.Left
+            ToggleLbl.Parent            = ToggleFrame
 
             local Switch = Instance.new("Frame")
-            Switch.Size = UDim2.new(0, 32, 0, 16)
-            Switch.Position = UDim2.new(1, -40, 0.5, -8)
-            Switch.BackgroundColor3 = Toggled and Color3.fromRGB(0, 102, 255) or Color3.fromRGB(35, 45, 65)
-            Switch.Parent = ToggleFrame
-
-            local SwitchCorner = Instance.new("UICorner") SwitchCorner.CornerRadius = UDim.new(1, 0) SwitchCorner.Parent = Switch
+            Switch.Size             = UDim2.new(0, 32, 0, 16)
+            Switch.Position         = UDim2.new(1, -40, 0.5, -8)
+            Switch.BackgroundColor3 = Toggled
+                and Color3.fromRGB(0, 102, 255)
+                or  Color3.fromRGB(35, 45, 65)
+            Switch.Parent           = ToggleFrame
+            local sc = Instance.new("UICorner"); sc.CornerRadius = UDim.new(1,0); sc.Parent = Switch
 
             local Circle = Instance.new("Frame")
-            Circle.Size = UDim2.new(0, 12, 0, 12)
-            Circle.Position = Toggled and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
+            Circle.Size             = UDim2.new(0, 12, 0, 12)
+            Circle.Position         = Toggled
+                and UDim2.new(1, -14, 0.5, -6)
+                or  UDim2.new(0, 2,   0.5, -6)
             Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Circle.Parent = Switch
-
-            local CircleCorner = Instance.new("UICorner") CircleCorner.CornerRadius = UDim.new(1, 0) CircleCorner.Parent = Circle
+            Circle.Parent           = Switch
+            local cc2 = Instance.new("UICorner"); cc2.CornerRadius = UDim.new(1,0); cc2.Parent = Circle
 
             local TriggerBtn = Instance.new("TextButton")
-            TriggerBtn.Size = UDim2.new(1, 0, 1, 0)
+            TriggerBtn.Size               = UDim2.new(1, 0, 1, 0)
             TriggerBtn.BackgroundTransparency = 1
-            TriggerBtn.Text = ""
-            TriggerBtn.Parent = ToggleFrame
+            TriggerBtn.Text               = ""
+            TriggerBtn.Parent             = ToggleFrame
 
             local function SetState(val)
                 Toggled = val
                 LunoLibrary.Flags[Flag] = Toggled
-                TweenService:Create(Switch, TweenInfo.new(0.2), {BackgroundColor3 = Toggled and Color3.fromRGB(0, 102, 255) or Color3.fromRGB(35, 45, 65)}):Play()
-                TweenService:Create(Circle, TweenInfo.new(0.2), {Position = Toggled and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play()
+                TweenService:Create(Switch, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Toggled
+                        and Color3.fromRGB(0, 102, 255)
+                        or  Color3.fromRGB(35, 45, 65)
+                }):Play()
+                TweenService:Create(Circle, TweenInfo.new(0.2), {
+                    Position = Toggled
+                        and UDim2.new(1, -14, 0.5, -6)
+                        or  UDim2.new(0, 2,   0.5, -6)
+                }):Play()
                 Callback(Toggled)
             end
 
             TriggerBtn.MouseButton1Click:Connect(function() SetState(not Toggled) end)
-
             LunoLibrary.Elements[Flag] = { Set = SetState }
 
             if Toggled then
-                task.spawn(function()
-                    Callback(Toggled)
-                end)
+                task.spawn(function() Callback(Toggled) end)
             end
-
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+            RefreshCanvas()
         end
 
-        -- Slider
-        function TabElements:CreateSlider(Settings)
-            local Name = Settings.Title or Settings.Name or "Slider"
-            local Min = Settings.Min or 0
-            local Max = Settings.Max or 100
-            local Default = math.clamp(Settings.Default or Min, Min, Max)
-            local Suffix = Settings.Suffix or ""
-            local Flag = Settings.Flag or Name
-            local Callback = Settings.Callback or function() end
+        -- ── Slider ────────────────────────────────────────
+        function TabElements:CreateSlider(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title or Opts.Name or "Slider"
+            local Min      = Opts.Min    or 0
+            local Max      = Opts.Max    or 100
+            local Default  = math.clamp(Opts.Default or Min, Min, Max)
+            local Suffix   = Opts.Suffix  or ""
+            local Flag     = Opts.Flag    or Name
+            local Callback = Opts.Callback or function() end
 
             LunoLibrary.Flags[Flag] = Default
 
             local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, 0, 0, 36)
+            SliderFrame.Size             = UDim2.new(1, 0, 0, 36)
             SliderFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            SliderFrame.LayoutOrder = NextOrder()
-            SliderFrame.Parent = CurrentContainer
+            SliderFrame.LayoutOrder      = NextOrder()
+            SliderFrame.Parent           = CurrentContainer
 
-            local SliderCorner = Instance.new("UICorner") SliderCorner.CornerRadius = UDim.new(0, 6) SliderCorner.Parent = SliderFrame
+            if not InsideBox then
+                local slc = Instance.new("UICorner")
+                slc.CornerRadius = UDim.new(0, 6); slc.Parent = SliderFrame
+            end
             StyleRowForBox(SliderFrame)
 
             local SliderLbl = Instance.new("TextLabel")
-            SliderLbl.Size = UDim2.new(1, -60, 0, 16)
-            SliderLbl.Position = UDim2.new(0, 10, 0, 3)
+            SliderLbl.Size              = UDim2.new(1, -60, 0, 16)
+            SliderLbl.Position          = UDim2.new(0, 10, 0, 3)
             SliderLbl.BackgroundTransparency = 1
-            SliderLbl.Text = Name
-            SliderLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-            SliderLbl.TextSize = 12
-            SliderLbl.Font = Enum.Font.TitilliumWeb
-            SliderLbl.TextXAlignment = Enum.TextXAlignment.Left
-            SliderLbl.Parent = SliderFrame
+            SliderLbl.Text              = Name
+            SliderLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
+            SliderLbl.TextSize          = 12
+            SliderLbl.Font              = Enum.Font.TitilliumWeb
+            SliderLbl.TextXAlignment    = Enum.TextXAlignment.Left
+            SliderLbl.Parent            = SliderFrame
 
             local ValLbl = Instance.new("TextLabel")
-            ValLbl.Size = UDim2.new(0, 50, 0, 16)
-            ValLbl.Position = UDim2.new(1, -55, 0, 3)
+            ValLbl.Size              = UDim2.new(0, 50, 0, 16)
+            ValLbl.Position          = UDim2.new(1, -55, 0, 3)
             ValLbl.BackgroundTransparency = 1
-            ValLbl.Text = tostring(Default) .. Suffix
-            ValLbl.TextColor3 = Color3.fromRGB(0, 170, 255)
-            ValLbl.TextSize = 12
-            ValLbl.Font = Enum.Font.TitilliumWeb
-            ValLbl.TextXAlignment = Enum.TextXAlignment.Right
-            ValLbl.Parent = SliderFrame
+            ValLbl.Text              = tostring(Default) .. Suffix
+            ValLbl.TextColor3        = Color3.fromRGB(0, 170, 255)
+            ValLbl.TextSize          = 12
+            ValLbl.Font              = Enum.Font.TitilliumWeb
+            ValLbl.TextXAlignment    = Enum.TextXAlignment.Right
+            ValLbl.Parent            = SliderFrame
 
             local Bar = Instance.new("Frame")
-            Bar.Size = UDim2.new(1, -20, 0, 5)
-            Bar.Position = UDim2.new(0, 10, 0, 22)
+            Bar.Size             = UDim2.new(1, -20, 0, 5)
+            Bar.Position         = UDim2.new(0, 10, 0, 22)
             Bar.BackgroundColor3 = Color3.fromRGB(35, 45, 65)
-            Bar.Parent = SliderFrame
-
-            local BarCorner = Instance.new("UICorner") BarCorner.CornerRadius = UDim.new(1, 0) BarCorner.Parent = Bar
+            Bar.Parent           = SliderFrame
+            local barc = Instance.new("UICorner"); barc.CornerRadius = UDim.new(1,0); barc.Parent = Bar
 
             local Fill = Instance.new("Frame")
-            Fill.Size = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0)
+            Fill.Size             = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0)
             Fill.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
-            Fill.Parent = Bar
-
-            local FillCorner = Instance.new("UICorner") FillCorner.CornerRadius = UDim.new(1, 0) FillCorner.Parent = Fill
+            Fill.Parent           = Bar
+            local filc = Instance.new("UICorner"); filc.CornerRadius = UDim.new(1,0); filc.Parent = Fill
 
             local function SetSliderValue(val)
-                val = math.clamp(val, Min, Max)
-                local pos = (val - Min) / (Max - Min)
-                Fill.Size = UDim2.new(pos, 0, 1, 0)
-                ValLbl.Text = tostring(val) .. Suffix
+                val = math.clamp(math.floor(val), Min, Max)
+                Fill.Size             = UDim2.new((val - Min) / (Max - Min), 0, 1, 0)
+                ValLbl.Text           = tostring(val) .. Suffix
                 LunoLibrary.Flags[Flag] = val
                 Callback(val)
             end
 
             local DraggingSlider = false
             local function UpdateSlider(input)
-                local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                local val = math.floor(Min + (Max - Min) * pos)
-                SetSliderValue(val)
+                local pct = math.clamp(
+                    (input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X,
+                    0, 1
+                )
+                SetSliderValue(Min + (Max - Min) * pct)
             end
 
             Bar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    DraggingSlider = true UpdateSlider(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                    DraggingSlider = true
+                    UpdateSlider(input)
                 end
             end)
             RegisterConnection(UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then DraggingSlider = false end
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                    DraggingSlider = false
+                end
             end))
             RegisterConnection(UserInputService.InputChanged:Connect(function(input)
-                if DraggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then UpdateSlider(input) end
+                if DraggingSlider and (
+                    input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch
+                ) then
+                    UpdateSlider(input)
+                end
             end))
 
             LunoLibrary.Elements[Flag] = { Set = SetSliderValue }
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+            RefreshCanvas()
         end
 
-        -- Dropdown
-        function TabElements:CreateDropdown(Settings)
-            local Name = Settings.Title or Settings.Name or "Dropdown"
-            local Options = Settings.Options or {"Option 1"}
-            local Multi = Settings.Multi or false
-            local Default = Settings.Default or (Multi and {} or Options[1])
-            local Flag = Settings.Flag or Name
-            local Callback = Settings.Callback or function() end
+        -- ── Dropdown ──────────────────────────────────────
+        function TabElements:CreateDropdown(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title   or Opts.Name or "Dropdown"
+            local Options  = Opts.Options or {"Option 1"}
+            local Multi    = Opts.Multi   or false
+            local Default  = Opts.Default or (Multi and {} or Options[1])
+            local Flag     = Opts.Flag    or Name
+            local Callback = Opts.Callback or function() end
 
-            local Selected = Default
+            local Selected  = Default
             local IsExpanded = false
             LunoLibrary.Flags[Flag] = Selected
 
             local DropFrame = Instance.new("Frame")
-            DropFrame.Size = UDim2.new(1, 0, 0, 32)
+            DropFrame.Size             = UDim2.new(1, 0, 0, 32)
             DropFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
             DropFrame.ClipsDescendants = true
-            DropFrame.LayoutOrder = NextOrder()
-            DropFrame.Parent = CurrentContainer
+            DropFrame.LayoutOrder      = NextOrder()
+            DropFrame.Parent           = CurrentContainer
 
-            local DropCorner = Instance.new("UICorner") DropCorner.CornerRadius = UDim.new(0, 6) DropCorner.Parent = DropFrame
+            if not InsideBox then
+                local drc = Instance.new("UICorner")
+                drc.CornerRadius = UDim.new(0, 6); drc.Parent = DropFrame
+            end
             StyleRowForBox(DropFrame)
 
             local DropLbl = Instance.new("TextLabel")
-            DropLbl.Size = UDim2.new(0, 120, 0, 32)
-            DropLbl.Position = UDim2.new(0, 10, 0, 0)
+            DropLbl.Size              = UDim2.new(0, 120, 0, 32)
+            DropLbl.Position          = UDim2.new(0, 10, 0, 0)
             DropLbl.BackgroundTransparency = 1
-            DropLbl.Text = Name
-            DropLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-            DropLbl.TextSize = 12
-            DropLbl.Font = Enum.Font.TitilliumWeb
-            DropLbl.TextXAlignment = Enum.TextXAlignment.Left
-            DropLbl.Parent = DropFrame
+            DropLbl.Text              = Name
+            DropLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
+            DropLbl.TextSize          = 12
+            DropLbl.Font              = Enum.Font.TitilliumWeb
+            DropLbl.TextXAlignment    = Enum.TextXAlignment.Left
+            DropLbl.Parent            = DropFrame
 
             local ValDisplay = Instance.new("TextLabel")
-            ValDisplay.Size = UDim2.new(1, -150, 0, 32)
-            ValDisplay.Position = UDim2.new(0, 115, 0, 0)
+            ValDisplay.Size              = UDim2.new(1, -150, 0, 32)
+            ValDisplay.Position          = UDim2.new(0, 115, 0, 0)
             ValDisplay.BackgroundTransparency = 1
-            ValDisplay.Text = Multi and table.concat(Selected, ", ") or tostring(Selected)
-            ValDisplay.TextColor3 = Color3.fromRGB(0, 170, 255)
-            ValDisplay.TextSize = 12
-            ValDisplay.Font = Enum.Font.TitilliumWeb
-            ValDisplay.TextXAlignment = Enum.TextXAlignment.Right
-            ValDisplay.TextTruncate = Enum.TextTruncate.AtEnd
-            ValDisplay.Parent = DropFrame
+            ValDisplay.Text              = Multi and table.concat(Selected, ", ") or tostring(Selected)
+            ValDisplay.TextColor3        = Color3.fromRGB(0, 170, 255)
+            ValDisplay.TextSize          = 12
+            ValDisplay.Font              = Enum.Font.TitilliumWeb
+            ValDisplay.TextXAlignment    = Enum.TextXAlignment.Right
+            ValDisplay.TextTruncate      = Enum.TextTruncate.AtEnd
+            ValDisplay.Parent            = DropFrame
 
             local Arrow = Instance.new("TextLabel")
-            Arrow.Size = UDim2.new(0, 20, 0, 32)
-            Arrow.Position = UDim2.new(1, -25, 0, 0)
+            Arrow.Size              = UDim2.new(0, 20, 0, 32)
+            Arrow.Position          = UDim2.new(1, -25, 0, 0)
             Arrow.BackgroundTransparency = 1
-            Arrow.Text = "▼"
-            Arrow.TextColor3 = Color3.fromRGB(120, 140, 170)
-            Arrow.TextSize = 10
-            Arrow.Font = Enum.Font.TitilliumWeb
-            Arrow.Parent = DropFrame
+            Arrow.Text              = "▼"
+            Arrow.TextColor3        = Color3.fromRGB(120, 140, 170)
+            Arrow.TextSize          = 10
+            Arrow.Font              = Enum.Font.TitilliumWeb
+            Arrow.Parent            = DropFrame
 
             local TriggerBtn = Instance.new("TextButton")
-            TriggerBtn.Size = UDim2.new(1, 0, 0, 32)
+            TriggerBtn.Size               = UDim2.new(1, 0, 0, 32)
             TriggerBtn.BackgroundTransparency = 1
-            TriggerBtn.Text = ""
-            TriggerBtn.Parent = DropFrame
+            TriggerBtn.Text               = ""
+            TriggerBtn.Parent             = DropFrame
 
             local ListHolder = Instance.new("Frame")
-            ListHolder.Size = UDim2.new(1, -20, 0, #Options * 26)
-            ListHolder.Position = UDim2.new(0, 10, 0, 32)
+            ListHolder.Size               = UDim2.new(1, -20, 0, #Options * 26)
+            ListHolder.Position           = UDim2.new(0, 10, 0, 32)
             ListHolder.BackgroundTransparency = 1
-            ListHolder.Parent = DropFrame
+            ListHolder.Parent             = DropFrame
 
-            local ListLayout = Instance.new("UIListLayout") ListLayout.Padding = UDim.new(0, 2) ListLayout.Parent = ListHolder
+            local ListLayout2 = Instance.new("UIListLayout")
+            ListLayout2.Padding   = UDim.new(0, 2)
+            ListLayout2.Parent    = ListHolder
 
             local function SetDropdownValue(val)
-                Selected = val
-                ValDisplay.Text = Multi and table.concat(Selected, ", ") or tostring(Selected)
-                LunoLibrary.Flags[Flag] = Selected
+                Selected                    = val
+                ValDisplay.Text             = Multi and table.concat(Selected, ", ") or tostring(Selected)
+                LunoLibrary.Flags[Flag]     = Selected
                 Callback(Selected)
             end
 
@@ -999,25 +1130,33 @@ function LunoLibrary:CreateWindow(Settings)
                 end
                 for _, opt in ipairs(NewOptions) do
                     local OptBtn = Instance.new("TextButton")
-                    OptBtn.Size = UDim2.new(1, 0, 0, 24)
+                    OptBtn.Size             = UDim2.new(1, 0, 0, 24)
                     OptBtn.BackgroundColor3 = Color3.fromRGB(22, 30, 48)
-                    OptBtn.Text = "  " .. opt
-                    OptBtn.TextColor3 = Color3.fromRGB(200, 210, 230)
-                    OptBtn.TextSize = 11
-                    OptBtn.Font = Enum.Font.TitilliumWeb
-                    OptBtn.TextXAlignment = Enum.TextXAlignment.Left
-                    OptBtn.Parent = ListHolder
+                    OptBtn.Text             = "  " .. opt
+                    OptBtn.TextColor3       = Color3.fromRGB(200, 210, 230)
+                    OptBtn.TextSize         = 11
+                    OptBtn.Font             = Enum.Font.TitilliumWeb
+                    OptBtn.TextXAlignment   = Enum.TextXAlignment.Left
+                    OptBtn.Parent           = ListHolder
 
-                    local OptCorner = Instance.new("UICorner") OptCorner.CornerRadius = UDim.new(0, 4) OptCorner.Parent = OptBtn
+                    local oc = Instance.new("UICorner")
+                    oc.CornerRadius = UDim.new(0, 4); oc.Parent = OptBtn
 
                     OptBtn.MouseButton1Click:Connect(function()
                         if Multi then
-                            if table.find(Selected, opt) then table.remove(Selected, table.find(Selected, opt)) else table.insert(Selected, opt) end
+                            local idx = table.find(Selected, opt)
+                            if idx then
+                                table.remove(Selected, idx)
+                            else
+                                table.insert(Selected, opt)
+                            end
                             SetDropdownValue(Selected)
                         else
                             SetDropdownValue(opt)
                             IsExpanded = false
-                            TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 32)}):Play()
+                            TweenService:Create(DropFrame, TweenInfo.new(0.2), {
+                                Size = UDim2.new(1, 0, 0, 32)
+                            }):Play()
                             Arrow.Text = "▼"
                         end
                     end)
@@ -1029,249 +1168,254 @@ function LunoLibrary:CreateWindow(Settings)
 
             TriggerBtn.MouseButton1Click:Connect(function()
                 IsExpanded = not IsExpanded
-                local currentOptionCount = #ListHolder:GetChildren() - 1
-                local targetH = IsExpanded and (36 + currentOptionCount * 26) or 32
-                TweenService:Create(DropFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetH)}):Play()
+                local optCount = 0
+                for _, c in ipairs(ListHolder:GetChildren()) do
+                    if c:IsA("TextButton") then optCount = optCount + 1 end
+                end
+                local targetH = IsExpanded and (36 + optCount * 26) or 32
+                TweenService:Create(DropFrame, TweenInfo.new(0.2), {
+                    Size = UDim2.new(1, 0, 0, targetH)
+                }):Play()
                 Arrow.Text = IsExpanded and "▲" or "▼"
-                task.wait(0.2)
-                ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+                task.delay(0.22, RefreshCanvas)
             end)
 
             LunoLibrary.Elements[Flag] = { Set = SetDropdownValue }
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+            RefreshCanvas()
 
             return { Refresh = RefreshOptions }
         end
 
-        -- Input Box
-        function TabElements:CreateInput(Settings)
-            local Name = Settings.Title or Settings.Name or "Input"
-            local Placeholder = Settings.Placeholder or "Type here..."
-            local Callback = Settings.Callback or function() end
+        -- ── Input ─────────────────────────────────────────
+        function TabElements:CreateInput(Opts)
+            Opts = Opts or {}
+            local Name        = Opts.Title       or Opts.Name or "Input"
+            local Placeholder = Opts.Placeholder  or "Type here..."
+            local Callback    = Opts.Callback     or function() end
 
             local InputFrame = Instance.new("Frame")
-            InputFrame.Size = UDim2.new(1, 0, 0, 32)
+            InputFrame.Size             = UDim2.new(1, 0, 0, 32)
             InputFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            InputFrame.LayoutOrder = NextOrder()
-            InputFrame.Parent = CurrentContainer
+            InputFrame.LayoutOrder      = NextOrder()
+            InputFrame.Parent           = CurrentContainer
 
-            local InputCorner = Instance.new("UICorner") InputCorner.CornerRadius = UDim.new(0, 6) InputCorner.Parent = InputFrame
+            if not InsideBox then
+                local ic = Instance.new("UICorner")
+                ic.CornerRadius = UDim.new(0, 6); ic.Parent = InputFrame
+            end
             StyleRowForBox(InputFrame)
 
             local InputLbl = Instance.new("TextLabel")
-            InputLbl.Size = UDim2.new(0, 120, 1, 0)
-            InputLbl.Position = UDim2.new(0, 10, 0, 0)
+            InputLbl.Size              = UDim2.new(0, 120, 1, 0)
+            InputLbl.Position          = UDim2.new(0, 10, 0, 0)
             InputLbl.BackgroundTransparency = 1
-            InputLbl.Text = Name
-            InputLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-            InputLbl.TextSize = 12
-            InputLbl.Font = Enum.Font.TitilliumWeb
-            InputLbl.TextXAlignment = Enum.TextXAlignment.Left
-            InputLbl.Parent = InputFrame
+            InputLbl.Text              = Name
+            InputLbl.TextColor3        = Color3.fromRGB(255, 255, 255)
+            InputLbl.TextSize          = 12
+            InputLbl.Font              = Enum.Font.TitilliumWeb
+            InputLbl.TextXAlignment    = Enum.TextXAlignment.Left
+            InputLbl.Parent            = InputFrame
 
             local BoxHolder = Instance.new("Frame")
-            BoxHolder.Size = UDim2.new(0, 140, 0, 22)
-            BoxHolder.Position = UDim2.new(1, -150, 0.5, -11)
+            BoxHolder.Size             = UDim2.new(0, 140, 0, 22)
+            BoxHolder.Position         = UDim2.new(1, -150, 0.5, -11)
             BoxHolder.BackgroundColor3 = Color3.fromRGB(22, 30, 48)
-            BoxHolder.Parent = InputFrame
-
-            local BoxCorner = Instance.new("UICorner") BoxCorner.CornerRadius = UDim.new(0, 4) BoxCorner.Parent = BoxHolder
+            BoxHolder.Parent           = InputFrame
+            local bhc = Instance.new("UICorner"); bhc.CornerRadius = UDim.new(0,4); bhc.Parent = BoxHolder
 
             local Box = Instance.new("TextBox")
-            Box.Size = UDim2.new(1, -10, 1, 0)
-            Box.Position = UDim2.new(0, 5, 0, 0)
+            Box.Size                = UDim2.new(1, -10, 1, 0)
+            Box.Position            = UDim2.new(0, 5, 0, 0)
             Box.BackgroundTransparency = 1
-            Box.PlaceholderText = Placeholder
-            Box.PlaceholderColor3 = Color3.fromRGB(90, 110, 140)
-            Box.Text = ""
-            Box.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Box.TextSize = 11
-            Box.Font = Enum.Font.TitilliumWeb
-            Box.Parent = BoxHolder
+            Box.PlaceholderText     = Placeholder
+            Box.PlaceholderColor3   = Color3.fromRGB(90, 110, 140)
+            Box.Text                = ""
+            Box.TextColor3          = Color3.fromRGB(255, 255, 255)
+            Box.TextSize            = 11
+            Box.Font                = Enum.Font.TitilliumWeb
+            Box.Parent              = BoxHolder
 
-            Box:GetPropertyChangedSignal("Text"):Connect(function()
-                Callback(Box.Text)
-            end)
-
-            Box.FocusLost:Connect(function()
-                Callback(Box.Text)
-            end)
-
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
+            Box.FocusLost:Connect(function() Callback(Box.Text) end)
+            RefreshCanvas()
         end
 
-        ---------------------------------------------------------
-        -- Paragraph (Dynamic Text Display)
-        ---------------------------------------------------------
-        function TabElements:CreateParagraph(Settings)
-            Settings = Settings or {}
-            local Title = Settings.Title or "Paragraph"
-            local Desc = Settings.Desc or Settings.Content or ""
+        -- ── Paragraph ─────────────────────────────────────
+        function TabElements:CreateParagraph(Opts)
+            Opts = Opts or {}
+            local Title = Opts.Title or "Paragraph"
+            local Desc  = Opts.Desc  or Opts.Content or ""
 
             local ParaFrame = Instance.new("Frame")
-            ParaFrame.Size = UDim2.new(1, 0, 0, 0)
-            ParaFrame.AutomaticSize = Enum.AutomaticSize.Y
+            ParaFrame.Size             = UDim2.new(1, 0, 0, 0)
+            ParaFrame.AutomaticSize    = Enum.AutomaticSize.Y
             ParaFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            ParaFrame.BorderSizePixel = 0
-            ParaFrame.LayoutOrder = NextOrder()
-            ParaFrame.Parent = CurrentContainer
+            ParaFrame.BorderSizePixel  = 0
+            ParaFrame.LayoutOrder      = NextOrder()
+            ParaFrame.Parent           = CurrentContainer
 
-            local ParaCorner = Instance.new("UICorner") ParaCorner.CornerRadius = UDim.new(0, 6) ParaCorner.Parent = ParaFrame
+            if not InsideBox then
+                local pfc = Instance.new("UICorner")
+                pfc.CornerRadius = UDim.new(0, 6); pfc.Parent = ParaFrame
+            end
             StyleRowForBox(ParaFrame)
 
-            local ParaPadding = Instance.new("UIPadding")
-            ParaPadding.PaddingTop = UDim.new(0, 8)
-            ParaPadding.PaddingBottom = UDim.new(0, 8)
-            ParaPadding.PaddingLeft = UDim.new(0, 10)
-            ParaPadding.PaddingRight = UDim.new(0, 10)
-            ParaPadding.Parent = ParaFrame
+            local ParaPad = Instance.new("UIPadding")
+            ParaPad.PaddingTop    = UDim.new(0, 8)
+            ParaPad.PaddingBottom = UDim.new(0, 8)
+            ParaPad.PaddingLeft   = UDim.new(0, 10)
+            ParaPad.PaddingRight  = UDim.new(0, 10)
+            ParaPad.Parent        = ParaFrame
 
-            local ParaLayout = Instance.new("UIListLayout")
-            ParaLayout.Padding = UDim.new(0, 4)
-            ParaLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            ParaLayout.Parent = ParaFrame
+            local ParaInnerLayout = Instance.new("UIListLayout")
+            ParaInnerLayout.Padding   = UDim.new(0, 4)
+            ParaInnerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            ParaInnerLayout.Parent    = ParaFrame
 
-            local TitleLbl = Instance.new("TextLabel")
-            TitleLbl.Size = UDim2.new(1, 0, 0, 16)
-            TitleLbl.AutomaticSize = Enum.AutomaticSize.Y
-            TitleLbl.BackgroundTransparency = 1
-            TitleLbl.Text = Title
-            TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-            TitleLbl.TextSize = 13
-            TitleLbl.Font = Enum.Font.SourceSansBold
-            TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-            TitleLbl.TextWrapped = true
-            TitleLbl.LayoutOrder = 1
-            TitleLbl.Parent = ParaFrame
+            local TitleLbl2 = Instance.new("TextLabel")
+            TitleLbl2.Size              = UDim2.new(1, 0, 0, 16)
+            TitleLbl2.AutomaticSize     = Enum.AutomaticSize.Y
+            TitleLbl2.BackgroundTransparency = 1
+            TitleLbl2.Text              = Title
+            TitleLbl2.TextColor3        = Color3.fromRGB(255, 255, 255)
+            TitleLbl2.TextSize          = 13
+            TitleLbl2.Font              = Enum.Font.SourceSansBold
+            TitleLbl2.TextXAlignment    = Enum.TextXAlignment.Left
+            TitleLbl2.TextWrapped       = true
+            TitleLbl2.LayoutOrder       = 1
+            TitleLbl2.Parent            = ParaFrame
 
-            local DescLbl = Instance.new("TextLabel")
-            DescLbl.Size = UDim2.new(1, 0, 0, 14)
-            DescLbl.AutomaticSize = Enum.AutomaticSize.Y
-            DescLbl.BackgroundTransparency = 1
-            DescLbl.Text = Desc
-            DescLbl.TextColor3 = Color3.fromRGB(150, 165, 190)
-            DescLbl.TextSize = 11
-            DescLbl.Font = Enum.Font.TitilliumWeb
-            DescLbl.TextXAlignment = Enum.TextXAlignment.Left
-            DescLbl.TextWrapped = true
-            DescLbl.LayoutOrder = 2
-            DescLbl.Parent = ParaFrame
+            local DescLbl2 = Instance.new("TextLabel")
+            DescLbl2.Size              = UDim2.new(1, 0, 0, 14)
+            DescLbl2.AutomaticSize     = Enum.AutomaticSize.Y
+            DescLbl2.BackgroundTransparency = 1
+            DescLbl2.Text              = Desc
+            DescLbl2.TextColor3        = Color3.fromRGB(150, 165, 190)
+            DescLbl2.TextSize          = 11
+            DescLbl2.Font              = Enum.Font.TitilliumWeb
+            DescLbl2.TextXAlignment    = Enum.TextXAlignment.Left
+            DescLbl2.TextWrapped       = true
+            DescLbl2.LayoutOrder       = 2
+            DescLbl2.Parent            = ParaFrame
 
             local ParaObj = {}
-            function ParaObj:SetTitle(NewTitle) TitleLbl.Text = NewTitle end
-            function ParaObj:SetDesc(NewDesc) DescLbl.Text = NewDesc end
+            function ParaObj:SetTitle(t) TitleLbl2.Text = t end
+            function ParaObj:SetDesc(d)  DescLbl2.Text  = d end
 
-            ScrollElements.CanvasSize = UDim2.new(0, 0, 0, ElementsLayout.AbsoluteContentSize.Y + 8)
-
+            RefreshCanvas()
             return ParaObj
         end
 
-        -- Script List
+        -- ── Script List ───────────────────────────────────
         function TabElements:CreateScriptList()
             local SearchFrame = Instance.new("Frame")
-            SearchFrame.Size = UDim2.new(1, -10, 0, 28)
+            SearchFrame.Size             = UDim2.new(1, -10, 0, 28)
             SearchFrame.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-            SearchFrame.Parent = TabPage
+            SearchFrame.Parent           = TabPage
+            local sfc = Instance.new("UICorner"); sfc.CornerRadius = UDim.new(0,6); sfc.Parent = SearchFrame
 
-            local SearchCorner = Instance.new("UICorner") SearchCorner.CornerRadius = UDim.new(0, 6) SearchCorner.Parent = SearchFrame
-
-            local SearchBox = Instance.new("TextBox")
-            SearchBox.Size = UDim2.new(1, -12, 1, 0)
-            SearchBox.Position = UDim2.new(0, 8, 0, 0)
-            SearchBox.BackgroundTransparency = 1
-            SearchBox.PlaceholderText = "Search script..."
-            SearchBox.PlaceholderColor3 = Color3.fromRGB(90, 110, 140)
-            SearchBox.Text = ""
-            SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-            SearchBox.TextSize = 11
-            SearchBox.Font = Enum.Font.TitilliumWeb
-            SearchBox.TextXAlignment = Enum.TextXAlignment.Left
-            SearchBox.Parent = SearchFrame
+            local SearchBox2 = Instance.new("TextBox")
+            SearchBox2.Size               = UDim2.new(1, -12, 1, 0)
+            SearchBox2.Position           = UDim2.new(0, 8, 0, 0)
+            SearchBox2.BackgroundTransparency = 1
+            SearchBox2.PlaceholderText    = "Search script..."
+            SearchBox2.PlaceholderColor3  = Color3.fromRGB(90, 110, 140)
+            SearchBox2.Text               = ""
+            SearchBox2.TextColor3         = Color3.fromRGB(255, 255, 255)
+            SearchBox2.TextSize           = 11
+            SearchBox2.Font               = Enum.Font.TitilliumWeb
+            SearchBox2.TextXAlignment     = Enum.TextXAlignment.Left
+            SearchBox2.Parent             = SearchFrame
 
             local ScrollList = Instance.new("ScrollingFrame")
-            ScrollList.Size = UDim2.new(1, -10, 1, -36)
-            ScrollList.Position = UDim2.new(0, 0, 0, 34)
+            ScrollList.Size                 = UDim2.new(1, -10, 1, -36)
+            ScrollList.Position             = UDim2.new(0, 0, 0, 34)
             ScrollList.BackgroundTransparency = 1
-            ScrollList.BorderSizePixel = 0
-            ScrollList.ScrollBarThickness = 3
+            ScrollList.BorderSizePixel      = 0
+            ScrollList.ScrollBarThickness   = 3
             ScrollList.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
-            ScrollList.Parent = TabPage
+            ScrollList.Parent               = TabPage
 
-            local CardsLayout = Instance.new("UIListLayout") CardsLayout.Padding = UDim.new(0, 6) CardsLayout.Parent = ScrollList
+            local CardsLayout2 = Instance.new("UIListLayout")
+            CardsLayout2.Padding   = UDim.new(0, 6)
+            CardsLayout2.Parent    = ScrollList
+
             local CardsList = {}
 
-            SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-                local text = string.lower(SearchBox.Text)
-                for _, item in ipairs(CardsList) do item.CardFrame.Visible = string.find(string.lower(item.Title), text) ~= nil end
-                ScrollList.CanvasSize = UDim2.new(0, 0, 0, CardsLayout.AbsoluteContentSize.Y + 8)
+            SearchBox2:GetPropertyChangedSignal("Text"):Connect(function()
+                local text = string.lower(SearchBox2.Text)
+                for _, item in ipairs(CardsList) do
+                    item.CardFrame.Visible =
+                        string.find(string.lower(item.Title), text) ~= nil
+                end
+                ScrollList.CanvasSize = UDim2.new(0, 0, 0,
+                    CardsLayout2.AbsoluteContentSize.Y + 8)
             end)
 
             local ScriptListObj = {}
             function ScriptListObj:AddCard(CardData)
                 CardData = CardData or {}
-                local Title = CardData.Title or "Script Title"
-                local Desc = CardData.Description or "Description..."
-                local Icon = CardData.Icon or "rbxassetid://6031763426"
-                local Callback = CardData.Callback or function() end
+                local CTitle    = CardData.Title       or "Script Title"
+                local CDesc     = CardData.Description or "Description..."
+                local CIcon     = CardData.Icon        or "rbxassetid://6031763426"
+                local CCallback = CardData.Callback    or function() end
 
                 local Card = Instance.new("Frame")
-                Card.Size = UDim2.new(1, -6, 0, 50)
+                Card.Size             = UDim2.new(1, -6, 0, 50)
                 Card.BackgroundColor3 = Color3.fromRGB(15, 22, 36)
-                Card.Parent = ScrollList
+                Card.Parent           = ScrollList
+                local cdc = Instance.new("UICorner"); cdc.CornerRadius = UDim.new(0,6); cdc.Parent = Card
 
-                local CardCorner = Instance.new("UICorner") CardCorner.CornerRadius = UDim.new(0, 6) CardCorner.Parent = Card
+                local CardIcon2 = Instance.new("ImageLabel")
+                CardIcon2.Size               = UDim2.new(0, 34, 0, 34)
+                CardIcon2.Position           = UDim2.new(0, 8, 0.5, -17)
+                CardIcon2.Image              = CIcon
+                CardIcon2.BackgroundTransparency = 1
+                CardIcon2.Parent             = Card
 
-                local CardIcon = Instance.new("ImageLabel")
-                CardIcon.Size = UDim2.new(0, 34, 0, 34)
-                CardIcon.Position = UDim2.new(0, 8, 0.5, -17)
-                CardIcon.Image = Icon
-                CardIcon.BackgroundTransparency = 1
-                CardIcon.Parent = Card
+                local CardTitle2 = Instance.new("TextLabel")
+                CardTitle2.Size              = UDim2.new(1, -140, 0, 16)
+                CardTitle2.Position          = UDim2.new(0, 48, 0, 8)
+                CardTitle2.BackgroundTransparency = 1
+                CardTitle2.Text              = CTitle
+                CardTitle2.TextColor3        = Color3.fromRGB(255, 255, 255)
+                CardTitle2.TextSize          = 12
+                CardTitle2.Font              = Enum.Font.TitilliumWeb
+                CardTitle2.TextXAlignment    = Enum.TextXAlignment.Left
+                CardTitle2.Parent            = Card
 
-                local CardTitle = Instance.new("TextLabel")
-                CardTitle.Size = UDim2.new(1, -140, 0, 16)
-                CardTitle.Position = UDim2.new(0, 48, 0, 8)
-                CardTitle.BackgroundTransparency = 1
-                CardTitle.Text = Title
-                CardTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-                CardTitle.TextSize = 12
-                CardTitle.Font = Enum.Font.TitilliumWeb
-                CardTitle.TextXAlignment = Enum.TextXAlignment.Left
-                CardTitle.Parent = Card
+                local CardDesc2 = Instance.new("TextLabel")
+                CardDesc2.Size              = UDim2.new(1, -140, 0, 14)
+                CardDesc2.Position          = UDim2.new(0, 48, 0, 26)
+                CardDesc2.BackgroundTransparency = 1
+                CardDesc2.Text              = CDesc
+                CardDesc2.TextColor3        = Color3.fromRGB(110, 130, 160)
+                CardDesc2.TextSize          = 10
+                CardDesc2.Font              = Enum.Font.TitilliumWeb
+                CardDesc2.TextXAlignment    = Enum.TextXAlignment.Left
+                CardDesc2.TextTruncate      = Enum.TextTruncate.AtEnd
+                CardDesc2.Parent            = Card
 
-                local CardDesc = Instance.new("TextLabel")
-                CardDesc.Size = UDim2.new(1, -140, 0, 14)
-                CardDesc.Position = UDim2.new(0, 48, 0, 26)
-                CardDesc.BackgroundTransparency = 1
-                CardDesc.Text = Desc
-                CardDesc.TextColor3 = Color3.fromRGB(110, 130, 160)
-                CardDesc.TextSize = 10
-                CardDesc.Font = Enum.Font.TitilliumWeb
-                CardDesc.TextXAlignment = Enum.TextXAlignment.Left
-                CardDesc.TextTruncate = Enum.TextTruncate.AtEnd
-                CardDesc.Parent = Card
+                local ExecBtn = Instance.new("TextButton")
+                ExecBtn.Size             = UDim2.new(0, 65, 0, 26)
+                ExecBtn.Position         = UDim2.new(1, -73, 0.5, -13)
+                ExecBtn.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+                ExecBtn.Text             = "Execute"
+                ExecBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+                ExecBtn.TextSize         = 11
+                ExecBtn.Font             = Enum.Font.TitilliumWeb
+                ExecBtn.Parent           = Card
+                local ebc = Instance.new("UICorner"); ebc.CornerRadius = UDim.new(0,5); ebc.Parent = ExecBtn
 
-                local CopyBtn = Instance.new("TextButton")
-                CopyBtn.Size = UDim2.new(0, 65, 0, 26)
-                CopyBtn.Position = UDim2.new(1, -73, 0.5, -13)
-                CopyBtn.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
-                CopyBtn.Text = "Execute"
-                CopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                CopyBtn.TextSize = 11
-                CopyBtn.Font = Enum.Font.TitilliumWeb
-                CopyBtn.Parent = Card
-
-                local CopyCorner = Instance.new("UICorner") CopyCorner.CornerRadius = UDim.new(0, 5) CopyCorner.Parent = CopyBtn
-
-                CopyBtn.MouseButton1Click:Connect(function()
-                    Callback()
-                    CopyBtn.Text = "Done"
+                ExecBtn.MouseButton1Click:Connect(function()
+                    CCallback()
+                    ExecBtn.Text = "Done"
                     task.wait(1)
-                    CopyBtn.Text = "Execute"
+                    ExecBtn.Text = "Execute"
                 end)
 
-                table.insert(CardsList, { Title = Title, CardFrame = Card })
-                ScrollList.CanvasSize = UDim2.new(0, 0, 0, CardsLayout.AbsoluteContentSize.Y + 8)
+                table.insert(CardsList, {Title = CTitle, CardFrame = Card})
+                ScrollList.CanvasSize = UDim2.new(0, 0, 0,
+                    CardsLayout2.AbsoluteContentSize.Y + 8)
             end
             return ScriptListObj
         end
@@ -1279,151 +1423,171 @@ function LunoLibrary:CreateWindow(Settings)
         return TabElements
     end
 
-    ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "MISC" TAB
-    ---------------------------------------------------------
-    local MiscTab = LunoLibrary:CreateTab("MISC", 9998)
+    -- Expose CreateTab publicly (per-window, not global)
+    function LunoLibrary:CreateTab(TabName, FixedOrder)
+        return CreateTabInternal(TabName, FixedOrder, false)
+    end
+
+    -- ══════════════════════════════════════════════════════
+    -- AUTO MISC TAB
+    -- ══════════════════════════════════════════════════════
+    local MiscTab = CreateTabInternal("MISC", 9998, false)
 
     MiscTab:CreateSection("Movement Abilities", {Box = true})
 
     MiscTab:CreateSlider({
-        Title = "WalkSpeed Hack",
-        Min = 16,
-        Max = 300,
-        Default = 16,
-        Suffix = " spd",
-        Flag = "WalkSpeedHack",
+        Title    = "WalkSpeed Hack",
+        Min      = 16,
+        Max      = 300,
+        Default  = 16,
+        Suffix   = " spd",
+        Flag     = "WalkSpeedHack",
         Callback = function(Value)
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.WalkSpeed = Value
-            end
+            pcall(function()
+                if LocalPlayer.Character then
+                    local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.WalkSpeed = Value end
+                end
+            end)
         end
     })
 
     MiscTab:CreateSlider({
-        Title = "High Jump Power",
-        Min = 50,
-        Max = 300,
-        Default = 50,
-        Suffix = " pwr",
-        Flag = "HighJumpPower",
+        Title    = "High Jump Power",
+        Min      = 50,
+        Max      = 300,
+        Default  = 50,
+        Suffix   = " pwr",
+        Flag     = "HighJumpPower",
         Callback = function(Value)
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.UseJumpPower = true
-                LocalPlayer.Character.Humanoid.JumpPower = Value
-            end
+            pcall(function()
+                if LocalPlayer.Character then
+                    local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        hum.UseJumpPower = true
+                        hum.JumpPower    = Value
+                    end
+                end
+            end)
         end
     })
 
-    ---------------------------------------------------------
-    -- REVISED SMOOTH 3D FLY SYSTEM (PURE TOGGLE - NO KEYBIND)
-    ---------------------------------------------------------
-    local Flying = false
+    -- ── Fly System ────────────────────────────────────────
+    local Flying  = false
     local FlySpeed = 50
 
     local function StopFlying()
-        if LocalPlayer.Character then
-            local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                if hrp:FindFirstChild("LunoFlyBV") then hrp.LunoFlyBV:Destroy() end
-                if hrp:FindFirstChild("LunoFlyBG") then hrp.LunoFlyBG:Destroy() end
+        pcall(function()
+            if LocalPlayer.Character then
+                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local bv = hrp:FindFirstChild("LunoFlyBV")
+                    local bg = hrp:FindFirstChild("LunoFlyBG")
+                    if bv then bv:Destroy() end
+                    if bg then bg:Destroy() end
+                end
+                local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum.PlatformStand = false end
             end
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.PlatformStand = false
-            end
-        end
+        end)
     end
 
-    RegisterConnection(RunService.RenderStepped:Connect(function()
-        if Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            local hrp = LocalPlayer.Character.HumanoidRootPart
-            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            
-            hum.PlatformStand = true
-            
-            local bv = hrp:FindFirstChild("LunoFlyBV")
-            if not bv then
-                bv = Instance.new("BodyVelocity")
-                bv.Name = "LunoFlyBV"
-                bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-                bv.Parent = hrp
-            end
-            
-            local bg = hrp:FindFirstChild("LunoFlyBG")
-            if not bg then
-                bg = Instance.new("BodyGyro")
-                bg.Name = "LunoFlyBG"
-                bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-                bg.P = 9e4
-                bg.Parent = hrp
-            end
-            
-            bg.CFrame = Camera.CFrame
-            
-            local moveVector = Vector3.zero
-            local camCF = Camera.CFrame
-            
-            if hum.MoveDirection.Magnitude > 0 then
-                local moveDir = hum.MoveDirection
-                local forwardDir = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
-                local rightDir = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
-                
-                local dotForward = moveDir:Dot(forwardDir)
-                local dotRight = moveDir:Dot(rightDir)
-                
-                if tostring(dotForward) == "nan" then dotForward = 0 end
-                if tostring(dotRight) == "nan" then dotRight = 0 end
+    -- FIX #6: Pisahkan logika fly ke connection sendiri,
+    -- hindari memanggil StopFlying() setiap frame
+    local FlyConnection = nil
 
-                moveVector = (camCF.LookVector * dotForward) + (camCF.RightVector * dotRight)
-            end
+    local function StartFlyLoop()
+        if FlyConnection then return end
+        FlyConnection = RunService.RenderStepped:Connect(function()
+            if not Flying then return end  -- early return, tidak destroy
+            pcall(function()
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hrp or not hum then return end
 
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                moveVector = moveVector + Vector3.new(0, 1, 0)
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
-                moveVector = moveVector + Vector3.new(0, 0.5, 0)
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
-                moveVector = moveVector - Vector3.new(0, 0.5, 0)
-            end
+                hum.PlatformStand = true
 
-            if moveVector.Magnitude > 0 then
-                moveVector = moveVector.Unit * FlySpeed
-            end
+                local bv = hrp:FindFirstChild("LunoFlyBV")
+                if not bv then
+                    bv = Instance.new("BodyVelocity")
+                    bv.Name     = "LunoFlyBV"
+                    bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+                    bv.Parent   = hrp
+                end
 
-            bv.Velocity = moveVector
-        else
-            StopFlying()
-        end
-    end))
+                local bg = hrp:FindFirstChild("LunoFlyBG")
+                if not bg then
+                    bg = Instance.new("BodyGyro")
+                    bg.Name     = "LunoFlyBG"
+                    bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+                    bg.P        = 9e4
+                    bg.Parent   = hrp
+                end
+
+                bg.CFrame = Camera.CFrame
+
+                local camCF  = Camera.CFrame
+                local moveVec = Vector3.zero
+
+                if hum.MoveDirection.Magnitude > 0 then
+                    local md  = hum.MoveDirection
+                    local fwd = Vector3.new(camCF.LookVector.X,  0, camCF.LookVector.Z).Unit
+                    local rgt = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
+
+                    local df = md:Dot(fwd)
+                    local dr = md:Dot(rgt)
+                    if df ~= df then df = 0 end  -- NaN check
+                    if dr ~= dr then dr = 0 end
+
+                    moveVec = camCF.LookVector * df + camCF.RightVector * dr
+                end
+
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    moveVec = moveVec + Vector3.new(0, 1, 0)
+                elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
+                    or UserInputService:IsKeyDown(Enum.KeyCode.E) then
+                    moveVec = moveVec + Vector3.new(0, 0.5, 0)
+                elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+                    moveVec = moveVec - Vector3.new(0, 0.5, 0)
+                end
+
+                bv.Velocity = (moveVec.Magnitude > 0)
+                    and moveVec.Unit * FlySpeed
+                    or  Vector3.zero
+            end)
+        end)
+        RegisterConnection(FlyConnection)
+    end
+
+    StartFlyLoop()  -- mulai loop sekali saja
 
     MiscTab:CreateSection("Fly System", {Box = true})
 
     MiscTab:CreateToggle({
-        Title = "Fly Hack",
-        Default = false,
-        Flag = "FlyHackState",
+        Title    = "Fly Hack",
+        Default  = false,
+        Flag     = "FlyHackState",
         Callback = function(State)
             Flying = State
-            if not State then
-                StopFlying()
-            end
+            if not State then StopFlying() end
         end
     })
 
     MiscTab:CreateSlider({
-        Title = "Fly Speed",
-        Min = 10,
-        Max = 300,
-        Default = 50,
-        Suffix = " spd",
-        Flag = "FlySpeedValue",
-        Callback = function(Value)
-            FlySpeed = Value
-        end
+        Title    = "Fly Speed",
+        Min      = 10,
+        Max      = 300,
+        Default  = 50,
+        Suffix   = " spd",
+        Flag     = "FlySpeedValue",
+        Callback = function(Value) FlySpeed = Value end
     })
 
     MiscTab:CreateSection("Visual ESP Elements", {Box = true})
 
+    -- Box ESP
     local BoxESPEnabled = false
     local function UpdateBoxESP()
         for _, plr in ipairs(Players:GetPlayers()) do
@@ -1432,11 +1596,11 @@ function LunoLibrary:CreateWindow(Settings)
                 if BoxESPEnabled then
                     if not hl then
                         hl = Instance.new("Highlight")
-                        hl.Name = "LunoBoxESP"
-                        hl.FillColor = Color3.fromRGB(0, 110, 255)
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        hl.Name             = "LunoBoxESP"
+                        hl.FillColor        = Color3.fromRGB(0, 110, 255)
+                        hl.OutlineColor     = Color3.fromRGB(255, 255, 255)
                         hl.FillTransparency = 0.5
-                        hl.Parent = plr.Character
+                        hl.Parent           = plr.Character
                         table.insert(ESPStorage, hl)
                     end
                 else
@@ -1447,47 +1611,54 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     MiscTab:CreateToggle({
-        Title = "Player Box ESP",
-        Default = false,
-        Flag = "PlayerBoxESP",
+        Title    = "Player Box ESP",
+        Default  = false,
+        Flag     = "PlayerBoxESP",
         Callback = function(State)
             BoxESPEnabled = State
             UpdateBoxESP()
         end
     })
 
+    -- Name ESP
     local NameESPEnabled = false
     RegisterConnection(RunService.RenderStepped:Connect(function()
-        if NameESPEnabled then
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local bg = plr.Character.Head:FindFirstChild("LunoNameESP")
-                    if not bg then
-                        bg = Instance.new("BillboardGui")
-                        bg.Name = "LunoNameESP"
-                        bg.Size = UDim2.new(0, 100, 0, 30)
-                        bg.StudsOffset = Vector3.new(0, 2.5, 0)
-                        bg.AlwaysOnTop = true
-                        
-                        local lbl = Instance.new("TextLabel")
-                        lbl.Name = "Txt"
-                        lbl.Size = UDim2.new(1, 0, 1, 0)
-                        lbl.BackgroundTransparency = 1
-                        lbl.TextColor3 = Color3.fromRGB(0, 200, 255)
-                        lbl.TextSize = 10
-                        lbl.Font = Enum.Font.TitilliumWeb
-                        lbl.Parent = bg
-                        bg.Parent = plr.Character.Head
-                        table.insert(ESPStorage, bg)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character then
+                local head = plr.Character:FindFirstChild("Head")
+                local bg   = head and head:FindFirstChild("LunoNameESP")
+
+                if NameESPEnabled then
+                    if head then
+                        if not bg then
+                            bg = Instance.new("BillboardGui")
+                            bg.Name        = "LunoNameESP"
+                            bg.Size        = UDim2.new(0, 100, 0, 30)
+                            bg.StudsOffset = Vector3.new(0, 2.5, 0)
+                            bg.AlwaysOnTop = true
+
+                            local lbl2 = Instance.new("TextLabel")
+                            lbl2.Name              = "Txt"
+                            lbl2.Size              = UDim2.new(1, 0, 1, 0)
+                            lbl2.BackgroundTransparency = 1
+                            lbl2.TextColor3        = Color3.fromRGB(0, 200, 255)
+                            lbl2.TextSize          = 10
+                            lbl2.Font              = Enum.Font.TitilliumWeb
+                            lbl2.Parent            = bg
+                            bg.Parent              = head
+                            table.insert(ESPStorage, bg)
+                        end
+                        -- Update distance
+                        local myHRP  = LocalPlayer.Character
+                            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        local thHRP  = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if myHRP and thHRP then
+                            local dist = math.floor((thHRP.Position - myHRP.Position).Magnitude)
+                            bg:FindFirstChild("Txt").Text =
+                                plr.DisplayName .. "\n[" .. dist .. "m]"
+                        end
                     end
-                    local dist = math.floor((plr.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
-                    bg.Txt.Text = plr.DisplayName .. "\n[" .. tostring(dist) .. "m]"
-                end
-            end
-        else
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr.Character and plr.Character:FindFirstChild("Head") then
-                    local bg = plr.Character.Head:FindFirstChild("LunoNameESP")
+                else
                     if bg then bg:Destroy() end
                 end
             end
@@ -1495,16 +1666,16 @@ function LunoLibrary:CreateWindow(Settings)
     end))
 
     MiscTab:CreateToggle({
-        Title = "Player Name & Distance ESP",
-        Default = false,
-        Flag = "PlayerNameESP",
+        Title    = "Player Name & Distance ESP",
+        Default  = false,
+        Flag     = "PlayerNameESP",
         Callback = function(State) NameESPEnabled = State end
     })
 
     MiscTab:CreateSection("Player Teleport", {Box = true})
 
     local TargetTeleportPlayer = ""
-    local PlayerDropdownObj
+    local PlayerDropdownObj2
 
     local function GetPlayerNames()
         local list = {}
@@ -1514,33 +1685,51 @@ function LunoLibrary:CreateWindow(Settings)
         return #list > 0 and list or {"No Players"}
     end
 
-    PlayerDropdownObj = MiscTab:CreateDropdown({
-        Title = "Select Player Target",
-        Options = GetPlayerNames(),
-        Multi = false,
-        Flag = "TeleportTargetPlayer",
+    PlayerDropdownObj2 = MiscTab:CreateDropdown({
+        Title    = "Select Player Target",
+        Options  = GetPlayerNames(),
+        Multi    = false,
+        Flag     = "TeleportTargetPlayer",
         Callback = function(Sel) TargetTeleportPlayer = Sel end
     })
 
-    RegisterConnection(Players.PlayerAdded:Connect(function() PlayerDropdownObj.Refresh(GetPlayerNames()) end))
-    RegisterConnection(Players.PlayerRemoving:Connect(function() PlayerDropdownObj.Refresh(GetPlayerNames()) end))
+    RegisterConnection(Players.PlayerAdded:Connect(function()
+        if PlayerDropdownObj2 then
+            PlayerDropdownObj2.Refresh(GetPlayerNames())
+        end
+    end))
+    RegisterConnection(Players.PlayerRemoving:Connect(function()
+        task.wait()  -- tunggu player benar-benar removed
+        if PlayerDropdownObj2 then
+            PlayerDropdownObj2.Refresh(GetPlayerNames())
+        end
+    end))
 
     MiscTab:CreateButton({
-        Title = "Instant Teleport to Selected Player",
+        Title    = "Instant Teleport to Selected Player",
         Callback = function()
-            local targetPlr = Players:FindFirstChild(TargetTeleportPlayer)
-            if targetPlr and targetPlr.Character and targetPlr.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = targetPlr.Character.HumanoidRootPart.CFrame
-                LunoLibrary:Notify({Title = "Teleport", Content = "Teleported to " .. TargetTeleportPlayer, Duration = 2})
+            local tgt = Players:FindFirstChild(TargetTeleportPlayer)
+            if tgt and tgt.Character
+            and tgt.Character:FindFirstChild("HumanoidRootPart")
+            and LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame =
+                    tgt.Character.HumanoidRootPart.CFrame
+                LunoLibrary:Notify({
+                    Title   = "Teleport",
+                    Content = "Teleported to " .. TargetTeleportPlayer,
+                    Duration = 2
+                })
             end
         end
     })
 
     MiscTab:CreateSection("Utilities & Protection", {Box = true})
 
+    -- FIX #5: Anti-AFK - tidak double-register connection
     local AntiAFKEnabled = true
-    local AntiAFKIdleConn = nil
     local AntiAFKLoopRunning = false
+    local AntiAFKIdleConn2 = nil
 
     local function AntiAFKPulse()
         pcall(function()
@@ -1551,21 +1740,21 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function StartAntiAFK()
-        if not AntiAFKIdleConn then
-            AntiAFKIdleConn = LocalPlayer.Idled:Connect(function()
-                AntiAFKPulse()
-            end)
-            RegisterConnection(AntiAFKIdleConn)
+        -- Daftarkan Idled event hanya sekali
+        if not AntiAFKIdleConn2 then
+            AntiAFKIdleConn2 = RegisterConnection(
+                LocalPlayer.Idled:Connect(function()
+                    if AntiAFKEnabled then AntiAFKPulse() end
+                end)
+            )
         end
-
+        -- Background loop hanya jalan sekali
         if not AntiAFKLoopRunning then
             AntiAFKLoopRunning = true
             task.spawn(function()
-                while AntiAFKEnabled and AntiAFKLoopRunning do
+                while AntiAFKLoopRunning do
                     task.wait(60)
-                    if AntiAFKEnabled then
-                        AntiAFKPulse()
-                    end
+                    if AntiAFKEnabled then AntiAFKPulse() end
                 end
             end)
         end
@@ -1573,28 +1762,21 @@ function LunoLibrary:CreateWindow(Settings)
 
     local function StopAntiAFK()
         AntiAFKLoopRunning = false
-        if AntiAFKIdleConn then
-            pcall(function() AntiAFKIdleConn:Disconnect() end)
-            AntiAFKIdleConn = nil
-        end
+        -- Connection tetap aktif tapi tida akan pulse karena AntiAFKEnabled=false
     end
 
     MiscTab:CreateToggle({
-        Title = "Anti-AFK Bypass (20-Min Protection)",
-        Default = true,
-        Flag = "AntiAFKBypass",
+        Title    = "Anti-AFK Bypass (20-Min Protection)",
+        Default  = true,
+        Flag     = "AntiAFKBypass",
         Callback = function(State)
             AntiAFKEnabled = State
-            if State then
-                StartAntiAFK()
-            else
-                StopAntiAFK()
-            end
+            if State then StartAntiAFK() else StopAntiAFK() end
         end
     })
 
     MiscTab:CreateButton({
-        Title = "100% Anti-Lag FPS Booster",
+        Title    = "100% Anti-Lag FPS Booster",
         Callback = function()
             pcall(function()
                 Lighting.GlobalShadows = false
@@ -1604,25 +1786,32 @@ function LunoLibrary:CreateWindow(Settings)
                         obj.Material = Enum.Material.SmoothPlastic
                     elseif obj:IsA("Decal") or obj:IsA("Texture") then
                         obj:Destroy()
-                    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") then
+                    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail")
+                        or obj:IsA("Smoke") or obj:IsA("Fire") then
                         obj.Enabled = false
                     end
                 end
             end)
-            LunoLibrary:Notify({Title = "FPS Booster", Content = "Anti-Lag Applied!", Duration = 3})
+            LunoLibrary:Notify({
+                Title   = "FPS Booster",
+                Content = "Anti-Lag Applied!",
+                Duration = 3
+            })
         end
     })
 
-    ---------------------------------------------------------
-    -- AUTOMATICALLY INJECTED "CONFIG" TAB
-    ---------------------------------------------------------
-    local ConfigTab = LunoLibrary:CreateTab("Config", 9999)
+    StartAntiAFK()  -- mulai langsung
+
+    -- ══════════════════════════════════════════════════════
+    -- AUTO CONFIG TAB
+    -- ══════════════════════════════════════════════════════
+    local ConfigTab = CreateTabInternal("Config", 9999, false)
 
     ConfigTab:CreateSection("Configuration Manager", {Box = true})
 
-    local TypedConfigName = ""
+    local TypedConfigName  = ""
     local SelectedConfigName = ""
-    local ConfigDropdownObj
+    local ConfigDropdownObj2
 
     local function GetSavedConfigNames()
         local list = {}
@@ -1630,45 +1819,47 @@ function LunoLibrary:CreateWindow(Settings)
             local files = SafeListFiles("LunoConfigs")
             for _, file in ipairs(files) do
                 if file:sub(-5) == ".json" then
-                    local cleanName = file:gsub("LunoConfigs\\", ""):gsub("LunoConfigs/", ""):gsub("%.json", "")
-                    table.insert(list, cleanName)
+                    local clean = file
+                        :gsub("LunoConfigs\\", "")
+                        :gsub("LunoConfigs/", "")
+                        :gsub("%.json", "")
+                    table.insert(list, clean)
                 end
             end
         end)
         return #list > 0 and list or {"No Saved Configs"}
     end
 
-    local initialConfigs = GetSavedConfigNames()
-    SelectedConfigName = initialConfigs[1] or ""
+    local initCfg = GetSavedConfigNames()
+    SelectedConfigName = initCfg[1] or ""
 
     ConfigTab:CreateInput({
-        Title = "Custom Config Name",
+        Title       = "Custom Config Name",
         Placeholder = "Type config name...",
-        Callback = function(Text)
-            TypedConfigName = Text
-        end
+        Callback    = function(Text) TypedConfigName = Text end
     })
 
     ConfigTab:CreateButton({
-        Title = "Save Config (Using Name Above)",
+        Title    = "Save Config (Using Name Above)",
         Callback = function()
-            local finalSaveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
+            local saveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             SafeMakeFolder("LunoConfigs")
-            local jsonString = HttpService:JSONEncode(LunoLibrary.Flags)
-            SafeWriteFile("LunoConfigs/" .. finalSaveName .. ".json", jsonString)
-            
-            SelectedConfigName = finalSaveName
-            LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. finalSaveName, Duration = 3})
-            if ConfigDropdownObj then ConfigDropdownObj.Refresh(GetSavedConfigNames()) end
+            SafeWriteFile(
+                "LunoConfigs/" .. saveName .. ".json",
+                HttpService:JSONEncode(LunoLibrary.Flags)
+            )
+            SelectedConfigName = saveName
+            LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. saveName, Duration = 3})
+            if ConfigDropdownObj2 then ConfigDropdownObj2.Refresh(GetSavedConfigNames()) end
         end
     })
 
     ConfigTab:CreateSection("Load & Delete Manager", {Box = true})
 
-    ConfigDropdownObj = ConfigTab:CreateDropdown({
-        Title = "Select Saved Config",
-        Options = GetSavedConfigNames(),
-        Multi = false,
+    ConfigDropdownObj2 = ConfigTab:CreateDropdown({
+        Title    = "Select Saved Config",
+        Options  = GetSavedConfigNames(),
+        Multi    = false,
         Callback = function(Sel)
             if Sel and Sel ~= "No Saved Configs" then
                 SelectedConfigName = Sel
@@ -1677,113 +1868,137 @@ function LunoLibrary:CreateWindow(Settings)
     })
 
     ConfigTab:CreateButton({
-        Title = "Load Selected Config",
+        Title    = "Load Selected Config",
         Callback = function()
-            local targetFile = SelectedConfigName
-            if not targetFile or targetFile == "" or targetFile == "No Saved Configs" then
-                local currentList = GetSavedConfigNames()
-                targetFile = currentList[1] or ""
+            local target = SelectedConfigName
+            if not target or target == "" or target == "No Saved Configs" then
+                local lst = GetSavedConfigNames()
+                target = lst[1] or ""
             end
-
-            if targetFile ~= "" and targetFile ~= "No Saved Configs" then
-                local content = SafeReadFile("LunoConfigs/" .. targetFile .. ".json")
-                if content then
-                    local success, data = pcall(function() return HttpService:JSONDecode(content) end)
-                    if success and type(data) == "table" then
-                        for flag, val in pairs(data) do
-                            LunoLibrary.Flags[flag] = val
-                            if LunoLibrary.Elements[flag] and LunoLibrary.Elements[flag].Set then
-                                pcall(function() LunoLibrary.Elements[flag].Set(val) end)
-                            end
-                        end
-                        LunoLibrary:Notify({Title = "Config Loaded", Content = "Loaded: " .. targetFile, Duration = 3})
-                    else
-                        LunoLibrary:Notify({Title = "Error", Content = "Corrupted config file!", Duration = 3})
+            if target == "" or target == "No Saved Configs" then
+                LunoLibrary:Notify({Title="Error", Content="No valid config!", Duration=3})
+                return
+            end
+            local content = SafeReadFile("LunoConfigs/" .. target .. ".json")
+            if not content then
+                LunoLibrary:Notify({Title="Error", Content="File not found: "..target, Duration=3})
+                return
+            end
+            local ok, data = pcall(function() return HttpService:JSONDecode(content) end)
+            if ok and type(data) == "table" then
+                for flag, val in pairs(data) do
+                    LunoLibrary.Flags[flag] = val
+                    if LunoLibrary.Elements[flag] and LunoLibrary.Elements[flag].Set then
+                        pcall(LunoLibrary.Elements[flag].Set, val)
                     end
-                else
-                    LunoLibrary:Notify({Title = "Error", Content = "File not found: " .. tostring(targetFile), Duration = 3})
                 end
+                LunoLibrary:Notify({Title="Config Loaded", Content="Loaded: "..target, Duration=3})
             else
-                LunoLibrary:Notify({Title = "Error", Content = "No valid config file selected!", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="Corrupted config!", Duration=3})
             end
         end
     })
 
     ConfigTab:CreateButton({
-        Title = "Delete Selected Config",
+        Title    = "Delete Selected Config",
         Callback = function()
             if SelectedConfigName ~= "" and SelectedConfigName ~= "No Saved Configs" then
                 SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
-                LunoLibrary:Notify({Title = "Config Deleted", Content = "Deleted: " .. SelectedConfigName, Duration = 3})
-                local newList = GetSavedConfigNames()
-                SelectedConfigName = newList[1] or ""
-                if ConfigDropdownObj then ConfigDropdownObj.Refresh(newList) end
+                LunoLibrary:Notify({Title="Deleted", Content="Deleted: "..SelectedConfigName, Duration=3})
+                local nl = GetSavedConfigNames()
+                SelectedConfigName = nl[1] or ""
+                if ConfigDropdownObj2 then ConfigDropdownObj2.Refresh(nl) end
             end
         end
     })
 
     ConfigTab:CreateButton({
-        Title = "Refresh Config List",
+        Title    = "Refresh Config List",
         Callback = function()
-            if ConfigDropdownObj then
-                local newList = GetSavedConfigNames()
-                ConfigDropdownObj.Refresh(newList)
-                LunoLibrary:Notify({Title = "Refreshed", Content = "Config list updated!", Duration = 2})
+            if ConfigDropdownObj2 then
+                ConfigDropdownObj2.Refresh(GetSavedConfigNames())
+                LunoLibrary:Notify({Title="Refreshed", Content="Config list updated!", Duration=2})
             end
         end
     })
 
-    ---------------------------------------------------------
-    -- HIDDEN USER PROFILE PAGE
-    ---------------------------------------------------------
+    -- ══════════════════════════════════════════════════════
+    -- FIX #7: HIDDEN PROFILE PAGE (Ditandai Hidden=true)
+    -- ══════════════════════════════════════════════════════
     local ProfilePage = Instance.new("Frame")
-    ProfilePage.Size = UDim2.new(1, 0, 1, 0)
+    ProfilePage.Size               = UDim2.new(1, 0, 1, 0)
     ProfilePage.BackgroundTransparency = 1
-    ProfilePage.Visible = false
-    ProfilePage.Parent = ContentContainer
+    ProfilePage.Visible            = false
+    ProfilePage.Parent             = ContentContainer
 
-    local ProfileTabObj = { Button = nil, Page = ProfilePage }
+    -- Daftarkan sebagai hidden tab agar SwitchTab tidak hide page lain
+    -- dengan cara yang salah
+    local ProfileTabObj = {
+        Button = nil,
+        Page   = ProfilePage,
+        Hidden = true,
+    }
     Tabs["__UserProfile__"] = ProfileTabObj
 
-    UserCard.MouseButton1Click:Connect(function() SwitchTab(ProfileTabObj) end)
+    UserCard.MouseButton1Click:Connect(function()
+        SwitchTab(ProfileTabObj)
+    end)
 
-    local ProfileScroll = Instance.new("ScrollingFrame")
-    ProfileScroll.Size = UDim2.new(1, -10, 1, 0)
-    ProfileScroll.BackgroundTransparency = 1
-    ProfileScroll.BorderSizePixel = 0
-    ProfileScroll.ScrollBarThickness = 3
-    ProfileScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
-    ProfileScroll.Parent = ProfilePage
+    local ProfileScroll2 = Instance.new("ScrollingFrame")
+    ProfileScroll2.Size                 = UDim2.new(1, -10, 1, 0)
+    ProfileScroll2.BackgroundTransparency = 1
+    ProfileScroll2.BorderSizePixel      = 0
+    ProfileScroll2.ScrollBarThickness   = 3
+    ProfileScroll2.ScrollBarImageColor3 = Color3.fromRGB(0, 102, 255)
+    ProfileScroll2.Parent               = ProfilePage
 
-    local ProfileLayout = Instance.new("UIListLayout") ProfileLayout.Padding = UDim.new(0, 6) ProfileLayout.Parent = ProfileScroll
+    local ProfileLayout2 = Instance.new("UIListLayout")
+    ProfileLayout2.Padding   = UDim.new(0, 6)
+    ProfileLayout2.Parent    = ProfileScroll2
 
-    local function CreateProfileItem(Text, Callback)
-        local Btn = Instance.new("TextButton")
-        Btn.Size = UDim2.new(1, -6, 0, 34)
-        Btn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
-        Btn.Text = Text
-        Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Btn.TextSize = 12
-        Btn.Font = Enum.Font.TitilliumWeb
-        Btn.Parent = ProfileScroll
+    local function CreateProfileItem(Text, CB)
+        local PBtn = Instance.new("TextButton")
+        PBtn.Size             = UDim2.new(1, -6, 0, 34)
+        PBtn.BackgroundColor3 = Color3.fromRGB(16, 22, 36)
+        PBtn.Text             = Text
+        PBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+        PBtn.TextSize         = 12
+        PBtn.Font             = Enum.Font.TitilliumWeb
+        PBtn.Parent           = ProfileScroll2
 
-        local BtnCorner = Instance.new("UICorner") BtnCorner.CornerRadius = UDim.new(0, 6) BtnCorner.Parent = Btn
-        if Callback then Btn.MouseButton1Click:Connect(Callback) end
-        ProfileScroll.CanvasSize = UDim2.new(0, 0, 0, ProfileLayout.AbsoluteContentSize.Y + 8)
+        local pbc = Instance.new("UICorner")
+        pbc.CornerRadius = UDim.new(0, 6); pbc.Parent = PBtn
+
+        if CB then PBtn.MouseButton1Click:Connect(CB) end
+        ProfileScroll2.CanvasSize = UDim2.new(0, 0, 0,
+            ProfileLayout2.AbsoluteContentSize.Y + 8)
     end
 
-    CreateProfileItem("User ID: " .. tostring(LocalPlayer.UserId), function() RealSetClipboard(tostring(LocalPlayer.UserId)) end)
+    CreateProfileItem("User ID: " .. tostring(LocalPlayer.UserId), function()
+        RealSetClipboard(tostring(LocalPlayer.UserId))
+    end)
     CreateProfileItem("Game: " .. CurrentGameName, nil)
-    CreateProfileItem("Job ID: " .. tostring(game.JobId), function() RealSetClipboard(tostring(game.JobId)) end)
-    CreateProfileItem("Rejoin Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+    CreateProfileItem("Job ID: " .. tostring(game.JobId), function()
+        RealSetClipboard(tostring(game.JobId))
+    end)
+    CreateProfileItem("Rejoin Server", function()
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+        end)
+    end)
     CreateProfileItem("Server Hop (Random)", function()
         pcall(function()
-            local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=Desc&limit=100")
+            local req  = game:HttpGet(
+                "https://games.roblox.com/v1/games/"
+                .. game.PlaceId
+                .. "/servers/0?sortOrder=Desc&limit=100"
+            )
             local body = HttpService:JSONDecode(req)
             if body and body.data then
                 for _, s in ipairs(body.data) do
                     if s.id ~= game.JobId and s.playing < s.maxPlayers then
-                        TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                        TeleportService:TeleportToPlaceInstance(
+                            game.PlaceId, s.id, LocalPlayer)
                         break
                     end
                 end
@@ -1792,12 +2007,19 @@ function LunoLibrary:CreateWindow(Settings)
     end)
     CreateProfileItem("Small Server Hop (Lowest Players)", function()
         pcall(function()
-            local req = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=Asc&limit=100")
+            local req  = game:HttpGet(
+                "https://games.roblox.com/v1/games/"
+                .. game.PlaceId
+                .. "/servers/0?sortOrder=Asc&limit=100"
+            )
             local body = HttpService:JSONDecode(req)
             if body and body.data then
                 for _, s in ipairs(body.data) do
-                    if s.id ~= game.JobId and s.playing > 0 and s.playing < s.maxPlayers then
-                        TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
+                    if s.id ~= game.JobId
+                    and s.playing > 0
+                    and s.playing < s.maxPlayers then
+                        TeleportService:TeleportToPlaceInstance(
+                            game.PlaceId, s.id, LocalPlayer)
                         break
                     end
                 end
