@@ -1,7 +1,3 @@
--- ============================================================
--- LUNO UI LIBRARY v15 - Y2K CHROME EDITION
--- ============================================================
-
 if getgenv().LunoUI_Cleanup then
     getgenv().LunoUI_Cleanup()
 end
@@ -12,6 +8,7 @@ local TeleportService    = game:GetService("TeleportService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local HttpService        = game:GetService("HttpService")
 local RunService         = game:GetService("RunService")
+local TextService        = game:GetService("TextService")
 local Lighting           = game:GetService("Lighting")
 local Players            = game:GetService("Players")
 local CoreGui            = game:GetService("CoreGui")
@@ -133,7 +130,7 @@ local function AddChromeStroke(parent, thickness, transparency, shimmer)
     st.Color           = Y2K.Neon
     st.Thickness       = thickness or 1
     st.Transparency    = transparency or 0.5
-    st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border -- penting: border, bukan outline teks
+    st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     st.Parent          = parent
     if shimmer then
         local g = Instance.new("UIGradient")
@@ -238,7 +235,7 @@ local function SetFlag(flag, value)
 end
 
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name           = "LunoUILibrary_v15"
+MainScreenGui.Name           = "LunoUILibrary_v16"
 MainScreenGui.ResetOnSpawn   = false
 MainScreenGui.DisplayOrder   = 100
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -267,10 +264,12 @@ end
 -- ══════════════════════════════════════════════════════════
 -- NOTIFICATION SYSTEM
 -- ══════════════════════════════════════════════════════════
+local NotifyWidth = 290
+
 local NotifyContainer = Create("Frame", {
     Name = "NotifyContainer",
-    Size = UDim2.new(0, 290, 1, -20),
-    Position = UDim2.new(1, -300, 0, 10),
+    Size = UDim2.new(0, NotifyWidth, 1, -20),
+    Position = UDim2.new(1, -(NotifyWidth + 10), 0, 10),
     BackgroundTransparency = 1,
     ZIndex = 100,
     Parent = MainScreenGui,
@@ -289,6 +288,14 @@ function LunoLibrary:Notify(Settings)
     local Content  = Settings.Content  or "Details..."
     local Duration = Settings.Duration or 3
 
+    -- hitung tinggi teks agar toast menyesuaikan isi
+    local textW = NotifyWidth - 24
+    local textH = 16
+    pcall(function()
+        textH = TextService:GetTextSize(Content, 13, FontBody, Vector2.new(textW, 1000)).Y
+    end)
+    local totalH = 30 + textH + 12
+
     local Toast = Create("Frame", {
         Size = UDim2.new(1, 0, 0, 0),
         BackgroundColor3 = Y2K.BgPanel2,
@@ -299,7 +306,7 @@ function LunoLibrary:Notify(Settings)
     AddChromeStroke(Toast, 1.2, 0.25, true)
 
     Create("TextLabel", {
-        Size = UDim2.new(1, -20, 0, 20),
+        Size = UDim2.new(1, -24, 0, 20),
         Position = UDim2.new(0, 12, 0, 7),
         BackgroundTransparency = 1,
         Text = Title,
@@ -311,13 +318,13 @@ function LunoLibrary:Notify(Settings)
     })
 
     Create("TextLabel", {
-        Size = UDim2.new(1, -20, 0, 34),
-        Position = UDim2.new(0, 12, 0, 28),
+        Size = UDim2.new(1, -24, 0, textH),
+        Position = UDim2.new(0, 12, 0, 30),
         BackgroundTransparency = 1,
         Text = Content,
         TextColor3 = Y2K.TextDim,
         TextSize = 13,
-        Font = FontMedium or FontBody,
+        Font = FontBody,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
         TextWrapped = true,
@@ -326,7 +333,7 @@ function LunoLibrary:Notify(Settings)
 
     TweenService:Create(Toast,
         TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-        {Size = UDim2.new(1, 0, 0, 70)}
+        {Size = UDim2.new(1, 0, 0, totalH)}
     ):Play()
 
     task.delay(Duration, function()
@@ -348,6 +355,13 @@ function LunoLibrary:CreateWindow(Settings)
     local TitleText     = Settings.Title    or "LUNO"
     local SubTitleText  = Settings.SubTitle or "by LUNAR"
     local DiscordInvite = Settings.Discord  or "https://discord.gg/lunar"
+
+    -- Toggle key (default: RightShift)
+    local ToggleKey = Settings.ToggleKey or Enum.KeyCode.RightShift
+    if typeof(ToggleKey) == "string" then
+        ToggleKey = Enum.KeyCode[ToggleKey] or Enum.KeyCode.RightShift
+    end
+    local ToggleKeyName = ToggleKey.Name
 
     local BaseWidth  = (DeviceType == "Mobile")
         and math.clamp(ViewportSize.X - 30, 320, 680)
@@ -798,7 +812,7 @@ function LunoLibrary:CreateWindow(Settings)
                 HintShown = true
                 LunoLibrary:Notify({
                     Title = "UI Hidden",
-                    Content = "Press RightControl or Insert to open again.",
+                    Content = "Press " .. ToggleKeyName .. " to show the menu again.",
                     Duration = 3
                 })
             end
@@ -815,10 +829,7 @@ function LunoLibrary:CreateWindow(Settings)
     end)
 
     RegisterConnection(UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and (
-            input.KeyCode == Enum.KeyCode.RightControl
-            or input.KeyCode == Enum.KeyCode.Insert
-        ) then
+        if not gpe and input.KeyCode == ToggleKey then
             ToggleUI()
         end
     end))
@@ -987,7 +998,6 @@ function LunoLibrary:CreateWindow(Settings)
             return NextOrder()
         end
 
-        -- Style row: kartu mandiri (corner+stroke) atau transparan jika di dalam box
         local function StyleRow(frame, boxed)
             if boxed then
                 frame.BackgroundTransparency = 1
@@ -1233,7 +1243,6 @@ function LunoLibrary:CreateWindow(Settings)
                 Parent = SliderFrame,
             })
 
-            -- hitbox lebih besar supaya mudah diklik/touch
             local Hit = Create("Frame", {
                 Size = UDim2.new(1, -28, 0, 24),
                 Position = UDim2.new(0, 14, 0, H - 28),
@@ -1541,7 +1550,6 @@ function LunoLibrary:CreateWindow(Settings)
 
             local function RefreshOptions(NewOptions)
                 BuildOptions(NewOptions)
-                -- validasi pilihan terhadap opsi baru
                 if Multi then
                     local filtered, changed = {}, false
                     for _, v in ipairs(Selected) do
@@ -2019,7 +2027,6 @@ function LunoLibrary:CreateWindow(Settings)
             if plr ~= LocalPlayer and plr.Character then
                 local char = plr.Character
 
-                -- Box (Highlight)
                 local hl = char:FindFirstChild("LunoBoxESP")
                 if BoxESPEnabled then
                     if not hl then
@@ -2035,7 +2042,6 @@ function LunoLibrary:CreateWindow(Settings)
                     hl:Destroy()
                 end
 
-                -- Name + Distance
                 local head = char:FindFirstChild("Head")
                 local bg   = head and head:FindFirstChild("LunoNameESP")
                 if NameESPEnabled then
@@ -2274,7 +2280,7 @@ function LunoLibrary:CreateWindow(Settings)
         Title    = "Select Saved Config",
         Options  = GetSavedConfigNames(),
         Multi    = false,
-        Flag     = false, -- jangan ikut tersimpan di config
+        Flag     = false,
         Callback = function(Sel)
             if Sel and Sel ~= "No Saved Configs" then
                 SelectedConfigName = Sel
@@ -2449,9 +2455,35 @@ function LunoLibrary:CreateWindow(Settings)
         ServerHop("Asc", true)
     end)
 
-    -- Pastikan ada tab aktif jika user belum membuat tab sendiri
-    -- (tab user pertama otomatis menggantikan saat dibuat)
+    -- Default tab (digantikan otomatis oleh tab user pertama)
     SwitchTab(Tabs["MISC"])
+
+    -- ══════════════════════════════════════════════════════
+    -- AUTO DEVICE DETECTION NOTIFICATION
+    -- ══════════════════════════════════════════════════════
+    task.delay(0.6, function()
+        if not MainScreenGui or not MainScreenGui.Parent then return end
+
+        if DeviceType == "PC" then
+            LunoLibrary:Notify({
+                Title    = "PC / Laptop Detected",
+                Content  = "Press " .. ToggleKeyName .. " to hide / show the menu.",
+                Duration = 6,
+            })
+        elseif DeviceType == "Tablet" then
+            LunoLibrary:Notify({
+                Title    = "Tablet Detected",
+                Content  = "Tap the LUNO floating button to hide / show the menu.",
+                Duration = 6,
+            })
+        else
+            LunoLibrary:Notify({
+                Title    = "Mobile Detected",
+                Content  = "Tap the LUNO floating button to hide / show the menu.",
+                Duration = 6,
+            })
+        end
+    end)
 
     return LunoLibrary
 end
