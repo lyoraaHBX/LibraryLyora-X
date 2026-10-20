@@ -18,14 +18,13 @@ local Camera      = workspace.CurrentCamera
 
 local ActiveConnections = {}
 local CleanupTasks      = {}
-local ESPObjects        = {} -- [Player] = {Highlight=, Billboard=}
+local ESPObjects        = {}
 
 local function RegisterConnection(Conn)
     table.insert(ActiveConnections, Conn)
     return Conn
 end
 
--- ── Device Detection ──────────────────────────────────────
 local ViewportSize = Camera.ViewportSize
 local IsTouch      = UserInputService.TouchEnabled
 local IsKeyboard   = UserInputService.KeyboardEnabled
@@ -64,9 +63,6 @@ local UIScale = {
 local WindowInset = 6
 local SidebarGap  = UIScale.SidebarWidth + WindowInset * 2
 
--- ══════════════════════════════════════════════════════════
--- THEME ENGINE (registry-based)
--- ══════════════════════════════════════════════════════════
 local Y2K = {
     Bg        = Color3.fromRGB(2, 3, 8),
     BgPanel   = Color3.fromRGB(7, 9, 18),
@@ -93,9 +89,7 @@ local function Themed(inst, prop, key)
 end
 
 local function ApplyTheme(newTheme)
-    for k, v in pairs(newTheme or {}) do
-        Y2K[k] = v
-    end
+    for k, v in pairs(newTheme or {}) do Y2K[k] = v end
     for _, entry in ipairs(ThemeRegistry) do
         if entry.Instance and entry.Instance.Parent then
             pcall(function() entry.Instance[entry.Prop] = Y2K[entry.Key] end)
@@ -107,7 +101,6 @@ local FontBody  = Enum.Font.GothamMedium
 local FontBold  = Enum.Font.GothamBold
 local FontBlack = Enum.Font.GothamBlack
 
--- ── Generic Helpers (Create w/ Theme support) ─────────────
 local function Create(class, props)
     local inst = Instance.new(class)
     local parent, themeBG, themeText, themeStroke
@@ -192,14 +185,12 @@ local function AddHoverGlow(obj, stroke, offT, onT)
     end)
 end
 
--- ── Game Name ─────────────────────────────────────────────
 local CurrentGameName = "Roblox Game"
 pcall(function()
     local info = MarketplaceService:GetProductInfo(game.PlaceId)
     if info and info.Name then CurrentGameName = info.Name end
 end)
 
--- ── Clipboard ─────────────────────────────────────────────
 local function RealSetClipboard(text)
     if setclipboard then setclipboard(text)
     elseif toclipboard then toclipboard(text)
@@ -216,7 +207,6 @@ local function RealGetClipboard()
     return ""
 end
 
--- ── Fallback HTTP ─────────────────────────────────────────
 local function SafeHttpGet(url)
     local ok, result = pcall(function()
         if syn and syn.request then
@@ -233,7 +223,6 @@ local function SafeHttpGet(url)
     return nil
 end
 
--- ── Debounce Helper (trailing) ────────────────────────────
 local function Debounce(fn, delay)
     delay = delay or 0.3
     local token = 0
@@ -242,14 +231,11 @@ local function Debounce(fn, delay)
         local myToken = token
         local args = {...}
         task.delay(delay, function()
-            if token == myToken then
-                fn(table.unpack(args))
-            end
+            if token == myToken then fn(table.unpack(args)) end
         end)
     end
 end
 
--- ── Safe File Helpers ─────────────────────────────────────
 local function SafeWriteFile(path, content)
     if writefile then pcall(writefile, path, content) end
 end
@@ -261,9 +247,7 @@ local function SafeReadFile(path)
     return nil
 end
 local function SafeMakeFolder(path)
-    if makefolder and isfolder and not isfolder(path) then
-        pcall(makefolder, path)
-    end
+    if makefolder and isfolder and not isfolder(path) then pcall(makefolder, path) end
 end
 local function SafeListFiles(path)
     if listfiles then
@@ -273,25 +257,16 @@ local function SafeListFiles(path)
     return {}
 end
 local function SafeDeleteFile(path)
-    if delfile and isfile and isfile(path) then
-        pcall(delfile, path)
-    end
+    if delfile and isfile and isfile(path) then pcall(delfile, path) end
 end
 
--- ── Parent GUI ────────────────────────────────────────────
 local function GetParentGui()
-    if gethui then
-        return gethui()
-    elseif syn and syn.protect_gui then
-        return CoreGui
-    elseif CoreGui:FindFirstChild("RobloxGui") then
-        return CoreGui
-    else
-        return LocalPlayer:WaitForChild("PlayerGui")
-    end
+    if gethui then return gethui()
+    elseif syn and syn.protect_gui then return CoreGui
+    elseif CoreGui:FindFirstChild("RobloxGui") then return CoreGui
+    else return LocalPlayer:WaitForChild("PlayerGui") end
 end
 
--- ── Library Object ────────────────────────────────────────
 local LunoLibrary  = {}
 LunoLibrary.Flags    = {}
 LunoLibrary.Elements = {}
@@ -302,28 +277,13 @@ local function SetFlag(flag, value)
     if flag then LunoLibrary.Flags[flag] = value end
 end
 
--- ══════════════════════════════════════════════════════════
--- WRAP ELEMENT + DEFERRED (lazy load support)
--- ══════════════════════════════════════════════════════════
 local function WrapElement(Instance, Flag, SetterFn, ExtraMethods)
     local Obj = {Instance = Instance}
-    function Obj:Set(v)
-        if SetterFn then SetterFn(v) end
-    end
-    function Obj:Get()
-        if Flag then return LunoLibrary.Flags[Flag] end
-    end
-    function Obj:Destroy()
-        if Instance then pcall(function() Instance:Destroy() end) end
-    end
-    function Obj:SetVisible(v)
-        if Instance then Instance.Visible = v end
-    end
-    if ExtraMethods then
-        for k, fn in pairs(ExtraMethods) do
-            Obj[k] = fn
-        end
-    end
+    function Obj:Set(v) if SetterFn then SetterFn(v) end end
+    function Obj:Get() if Flag then return LunoLibrary.Flags[Flag] end end
+    function Obj:Destroy() if Instance then pcall(function() Instance:Destroy() end) end end
+    function Obj:SetVisible(v) if Instance then Instance.Visible = v end end
+    if ExtraMethods then for k, fn in pairs(ExtraMethods) do Obj[k] = fn end end
     return Obj
 end
 
@@ -355,7 +315,6 @@ local function NewDeferred()
     return D
 end
 
--- ── Main ScreenGui ────────────────────────────────────────
 local MainScreenGui = Instance.new("ScreenGui")
 MainScreenGui.Name           = "LunoUILibrary_v17"
 MainScreenGui.ResetOnSpawn   = false
@@ -363,17 +322,15 @@ MainScreenGui.DisplayOrder   = 100
 MainScreenGui.IgnoreGuiInset = true
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-if syn and syn.protect_gui then
-    syn.protect_gui(MainScreenGui)
-end
+if syn and syn.protect_gui then syn.protect_gui(MainScreenGui) end
 MainScreenGui.Parent = GetParentGui()
 
--- ── Global Overlay Layer (dropdown/colorpicker/confirm) ───
+-- FIX: OverlayLayer ZIndex dinaikkan ke 1000 agar dropdown selalu di atas
 local OverlayLayer = Create("Frame", {
     Name = "OverlayLayer",
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    ZIndex = 500,
+    ZIndex = 1000,
     Parent = MainScreenGui,
 })
 
@@ -385,13 +342,9 @@ local function CloseAllOverlays()
 end
 
 RegisterConnection(UserInputService.InputBegan:Connect(function(input)
-    -- ESC closes overlays
-    if input.KeyCode == Enum.KeyCode.Escape then
-        CloseAllOverlays()
-    end
+    if input.KeyCode == Enum.KeyCode.Escape then CloseAllOverlays() end
 end))
 
--- ── Clamp helper for dragging ──────────────────────────────
 local function ClampToScreen(pos, size)
     local vp = Camera.ViewportSize
     local minX, minY = -size.X + 80, 0
@@ -400,27 +353,18 @@ local function ClampToScreen(pos, size)
 end
 
 getgenv().LunoUI_Cleanup = function()
-    for _, fn in ipairs(CleanupTasks) do
-        pcall(fn)
-    end
-    for _, conn in ipairs(ActiveConnections) do
-        pcall(function() conn:Disconnect() end)
-    end
+    for _, fn in ipairs(CleanupTasks) do pcall(fn) end
+    for _, conn in ipairs(ActiveConnections) do pcall(function() conn:Disconnect() end) end
     for plr, data in pairs(ESPObjects) do
         if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
         if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
     end
     ESPObjects = {}
     ThemeRegistry = {}
-    if MainScreenGui and MainScreenGui.Parent then
-        MainScreenGui:Destroy()
-    end
+    if MainScreenGui and MainScreenGui.Parent then MainScreenGui:Destroy() end
     getgenv().LunoUI_Cleanup = nil
 end
 
--- ══════════════════════════════════════════════════════════
--- NOTIFICATION SYSTEM (typed, limited)
--- ══════════════════════════════════════════════════════════
 local NotifyWidth = 290
 local MAX_TOASTS  = 5
 local ActiveToasts = {}
@@ -458,9 +402,7 @@ function LunoLibrary:Notify(Settings)
 
     if #ActiveToasts >= MAX_TOASTS then
         local oldest = table.remove(ActiveToasts, 1)
-        if oldest and oldest.Parent then
-            pcall(function() oldest:Destroy() end)
-        end
+        if oldest and oldest.Parent then pcall(function() oldest:Destroy() end) end
     end
 
     local textW = NotifyWidth - 30
@@ -486,7 +428,6 @@ function LunoLibrary:Notify(Settings)
         BorderSizePixel = 0,
         Parent = Toast,
     })
-
     Create("TextLabel", {
         Size = UDim2.new(1, -24, 0, 20),
         Position = UDim2.new(0, 12, 0, 7),
@@ -498,7 +439,6 @@ function LunoLibrary:Notify(Settings)
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = Toast,
     })
-
     Create("TextLabel", {
         Size = UDim2.new(1, -24, 0, textH),
         Position = UDim2.new(0, 12, 0, 30),
@@ -534,9 +474,6 @@ function LunoLibrary:Notify(Settings)
     end)
 end
 
--- ══════════════════════════════════════════════════════════
--- CONFIRM DIALOG
--- ══════════════════════════════════════════════════════════
 function LunoLibrary:Confirm(Settings)
     Settings = Settings or {}
     local Title       = Settings.Title or "Confirm Action"
@@ -552,7 +489,7 @@ function LunoLibrary:Confirm(Settings)
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Color3.new(0, 0, 0),
         BackgroundTransparency = 0.45,
-        ZIndex = 700,
+        ZIndex = 1100,
         Parent = OverlayLayer,
     })
 
@@ -560,7 +497,7 @@ function LunoLibrary:Confirm(Settings)
         Size = UDim2.new(0, 320, 0, 170),
         Position = UDim2.new(0.5, -160, 0.5, -85),
         BackgroundColor3 = Y2K.BgPanel2,
-        ZIndex = 701,
+        ZIndex = 1101,
         Parent = Backdrop,
     })
     AddCorner(Box, 12)
@@ -575,10 +512,9 @@ function LunoLibrary:Confirm(Settings)
         TextSize = 18,
         Font = FontBold,
         TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 702,
+        ZIndex = 1102,
         Parent = Box,
     })
-
     Create("TextLabel", {
         Size = UDim2.new(1, -30, 0, 65),
         Position = UDim2.new(0, 15, 0, 44),
@@ -590,7 +526,7 @@ function LunoLibrary:Confirm(Settings)
         TextXAlignment = Enum.TextXAlignment.Left,
         TextYAlignment = Enum.TextYAlignment.Top,
         TextWrapped = true,
-        ZIndex = 702,
+        ZIndex = 1102,
         Parent = Box,
     })
 
@@ -604,7 +540,7 @@ function LunoLibrary:Confirm(Settings)
             TextSize = 14,
             Font = FontBold,
             AutoButtonColor = false,
-            ZIndex = 702,
+            ZIndex = 1102,
             Parent = Box,
         })
         AddCorner(btn, 8)
@@ -616,25 +552,12 @@ function LunoLibrary:Confirm(Settings)
     AddChromeStroke(CancelBtn, 1, 0.5)
     AddChromeStroke(ConfirmBtn, 1, 0.3)
 
-    local function Close()
-        pcall(function() Backdrop:Destroy() end)
-    end
-
-    ConfirmBtn.MouseButton1Click:Connect(function()
-        Close()
-        task.spawn(OnConfirm)
-    end)
-    CancelBtn.MouseButton1Click:Connect(function()
-        Close()
-        task.spawn(OnCancel)
-    end)
-
+    local function Close() pcall(function() Backdrop:Destroy() end) end
+    ConfirmBtn.MouseButton1Click:Connect(function() Close() task.spawn(OnConfirm) end)
+    CancelBtn.MouseButton1Click:Connect(function() Close() task.spawn(OnCancel) end)
     table.insert(ActiveOverlayClosers, Close)
 end
 
--- ══════════════════════════════════════════════════════════
--- CREATE WINDOW
--- ══════════════════════════════════════════════════════════
 function LunoLibrary:CreateWindow(Settings)
     Settings = Settings or {}
     local TitleText     = Settings.Title    or "LUNO"
@@ -656,7 +579,6 @@ function LunoLibrary:CreateWindow(Settings)
         or (DeviceType == "Tablet") and 500
         or 540
 
-    -- ── Main Frame ────────────────────────────────────────
     local MainFrame = Create("Frame", {
         Name = "MainFrame",
         Size = UDim2.new(0, BaseWidth, 0, BaseHeight),
@@ -669,7 +591,6 @@ function LunoLibrary:CreateWindow(Settings)
     AddCorner(MainFrame, 14)
     AddChromeStroke(MainFrame, 1.5, 0.15, true)
 
-    -- ── Dragging (with clamp) ──────────────────────────────
     local Dragging, DragStart, StartPos = false, nil, nil
     local function BindDrag(handle)
         handle.InputBegan:Connect(function(input)
@@ -679,9 +600,7 @@ function LunoLibrary:CreateWindow(Settings)
                 DragStart = input.Position
                 StartPos  = MainFrame.Position
                 input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        Dragging = false
-                    end
+                    if input.UserInputState == Enum.UserInputState.End then Dragging = false end
                 end)
             end
         end)
@@ -697,7 +616,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- ── Resize ────────────────────────────────────────────
     local ResizeHitbox = Create("TextButton", {
         Size = UDim2.new(0, 26, 0, 26),
         Position = UDim2.new(1, -26, 1, -26),
@@ -728,9 +646,7 @@ function LunoLibrary:CreateWindow(Settings)
             ResizeStart = input.Position
             StartSize   = MainFrame.AbsoluteSize
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    Resizing = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then Resizing = false end
             end)
         end
     end)
@@ -748,7 +664,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- ── Floating Badge (Mobile/Tablet) ────────────────────
     local FloatingPopUp = Create("Frame", {
         Name = "LunoFloatingPopUp",
         Size = UDim2.new(0, 95, 0, 38),
@@ -769,7 +684,6 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = FloatingPopUp,
     })
     AddChromeText(FloatBtn)
-
     Create("UIStroke", {
         Color = Y2K.Neon,
         Thickness = 1.8,
@@ -787,9 +701,7 @@ function LunoLibrary:CreateWindow(Settings)
             FloatDragStart = input.Position
             FloatStartPos  = FloatingPopUp.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    FloatDragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then FloatDragging = false end
             end)
         end
     end)
@@ -805,7 +717,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- ── Left Sidebar ──────────────────────────────────────
     local LeftSidebar = Create("Frame", {
         Name = "LeftSidebar",
         Size = UDim2.new(0, UIScale.SidebarWidth, 1, -WindowInset * 2),
@@ -891,15 +802,9 @@ function LunoLibrary:CreateWindow(Settings)
     AddCorner(DiscordBtn, 8)
     local discordStroke = AddChromeStroke(DiscordBtn, 1, 0.5)
     AddHoverGlow(DiscordBtn, discordStroke)
-
     DiscordBtn.MouseButton1Click:Connect(function()
         RealSetClipboard(DiscordInvite)
-        LunoLibrary:Notify({
-            Title   = "Discord Invite",
-            Content = "Successfully copied Discord link!",
-            Type    = "Success",
-            Duration = 3
-        })
+        LunoLibrary:Notify({Title="Discord Invite", Content="Successfully copied Discord link!", Type="Success", Duration=3})
     end)
 
     local UserCard = Create("TextButton", {
@@ -922,14 +827,10 @@ function LunoLibrary:CreateWindow(Settings)
     })
     AddCorner(UserAvatar, UDim.new(1, 0))
     AddChromeStroke(UserAvatar, 1.2, 0.3)
-
     task.spawn(function()
         pcall(function()
             UserAvatar.Image = Players:GetUserThumbnailAsync(
-                LocalPlayer.UserId,
-                Enum.ThumbnailType.HeadShot,
-                Enum.ThumbnailSize.Size150x150
-            )
+                LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
         end)
     end)
 
@@ -945,7 +846,6 @@ function LunoLibrary:CreateWindow(Settings)
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = UserCard,
     })
-
     Create("TextLabel", {
         Size = UDim2.new(1, -54, 0, 14),
         Position = UDim2.new(0, 48, 0, 26),
@@ -1086,11 +986,7 @@ function LunoLibrary:CreateWindow(Settings)
             end)
             if DeviceType == "PC" and not HintShown then
                 HintShown = true
-                LunoLibrary:Notify({
-                    Title = "UI Hidden",
-                    Content = "Press " .. ToggleKeyName .. " to show the menu again.",
-                    Duration = 3
-                })
+                LunoLibrary:Notify({Title="UI Hidden", Content="Press " .. ToggleKeyName .. " to show the menu again.", Duration=3})
             end
         end
     end
@@ -1112,9 +1008,7 @@ function LunoLibrary:CreateWindow(Settings)
     end)
 
     RegisterConnection(UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == ToggleKey then
-            ToggleUI()
-        end
+        if not gpe and input.KeyCode == ToggleKey then ToggleUI() end
     end))
 
     local ContentTop = WindowInset + 8 + 65 + 8
@@ -1126,7 +1020,6 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = MainFrame,
     })
 
-    -- ── Tab System (with lazy load) ────────────────────────
     local Tabs           = {}
     local ActiveTab      = nil
     local UserTabCounter = 0
@@ -1140,9 +1033,7 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function SwitchTab(TargetTab)
-        if not TargetTab.Loaded then
-            TargetTab.Flush()
-        end
+        if not TargetTab.Loaded then TargetTab.Flush() end
         for _, tab in pairs(Tabs) do
             if tab ~= TargetTab then
                 SetTabVisual(tab, false)
@@ -1154,7 +1045,6 @@ function LunoLibrary:CreateWindow(Settings)
         ActiveTab = TargetTab
     end
 
-    -- ── CreateTab Internal (lazy) ───────────────────────────
     local function CreateTabInternal(TabName, FixedOrder, IsHidden, IsSystem, IconId)
         if not IsSystem then UserTabCounter = UserTabCounter + 1 end
         local LayoutOrderValue = FixedOrder or UserTabCounter
@@ -1181,7 +1071,7 @@ function LunoLibrary:CreateWindow(Settings)
 
             local textPadLeft = 16
             if IconId then
-                local IconImg = Create("ImageLabel", {
+                Create("ImageLabel", {
                     Size = UDim2.new(0, 18, 0, 18),
                     Position = UDim2.new(0, 14, 0.5, -9),
                     BackgroundTransparency = 1,
@@ -1227,17 +1117,12 @@ function LunoLibrary:CreateWindow(Settings)
             TabObj.Loaded = true
             local q = PendingQueue
             PendingQueue = {}
-            for _, fn in ipairs(q) do
-                pcall(fn)
-            end
+            for _, fn in ipairs(q) do pcall(fn) end
         end
 
         local function QueueOrRun(fn)
-            if TabObj.Loaded then
-                fn()
-            else
-                table.insert(PendingQueue, fn)
-            end
+            if TabObj.Loaded then fn()
+            else table.insert(PendingQueue, fn) end
         end
 
         Tabs[TabName] = TabObj
@@ -1260,7 +1145,6 @@ function LunoLibrary:CreateWindow(Settings)
             SwitchTab(TabObj)
         end
 
-        -- ── Tab Elements ──────────────────────────────────
         local TabElements = {}
 
         local ScrollElements = Create("ScrollingFrame", {
@@ -1273,7 +1157,6 @@ function LunoLibrary:CreateWindow(Settings)
             CanvasSize = UDim2.new(0, 0, 0, 0),
             Parent = TabPage,
         })
-
         Create("UIPadding", {
             PaddingLeft = UDim.new(0, 4),
             PaddingRight = UDim.new(0, 10),
@@ -1281,7 +1164,6 @@ function LunoLibrary:CreateWindow(Settings)
             PaddingBottom = UDim.new(0, 10),
             Parent = ScrollElements,
         })
-
         Create("UIListLayout", {
             Padding = UDim.new(0, 5),
             SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1325,7 +1207,6 @@ function LunoLibrary:CreateWindow(Settings)
             end
         end
 
-        -- ── Section ───────────────────────────────────────
         function TabElements:CreateSection(SectionName, Opts)
             Opts = Opts or {}
             local UseBox = Opts.Box or false
@@ -1341,7 +1222,6 @@ function LunoLibrary:CreateWindow(Settings)
                     LayoutOrder = NextOrder(),
                     Parent = ScrollElements,
                 })
-
                 Create("TextLabel", {
                     Size = UDim2.new(1, 0, 1, 0),
                     BackgroundTransparency = 1,
@@ -1366,7 +1246,6 @@ function LunoLibrary:CreateWindow(Settings)
                     })
                     AddCorner(BoxFrame, 10)
                     AddChromeStroke(BoxFrame, 1, 0.55)
-
                     Create("UIPadding", {
                         PaddingTop = UDim.new(0, 2),
                         PaddingBottom = UDim.new(0, 2),
@@ -1377,7 +1256,6 @@ function LunoLibrary:CreateWindow(Settings)
                         SortOrder = Enum.SortOrder.LayoutOrder,
                         Parent = BoxFrame,
                     })
-
                     CurrentContainer   = BoxFrame
                     InsideBox          = true
                     CurrentBoxRowCount = 0
@@ -1385,7 +1263,6 @@ function LunoLibrary:CreateWindow(Settings)
             end)
         end
 
-        -- ── Button ────────────────────────────────────────
         function TabElements:CreateButton(Opts)
             Opts = Opts or {}
             local Name     = Opts.Title or Opts.Name or "Button"
@@ -1407,7 +1284,6 @@ function LunoLibrary:CreateWindow(Settings)
                 })
                 StyleRow(Btn, boxed)
                 local btnStroke = (not boxed) and Btn:FindFirstChildOfClass("UIStroke") or nil
-
                 local idleT  = boxed and 1 or 0
                 local hoverT = boxed and 0.4 or 0
 
@@ -1417,9 +1293,7 @@ function LunoLibrary:CreateWindow(Settings)
                         BackgroundTransparency = hoverT,
                         TextColor3 = Y2K.Chrome,
                     }):Play()
-                    if btnStroke then
-                        TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.05}):Play()
-                    end
+                    if btnStroke then TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.05}):Play() end
                 end)
                 Btn.MouseLeave:Connect(function()
                     TweenService:Create(Btn, TweenInfo.new(0.15), {
@@ -1427,19 +1301,14 @@ function LunoLibrary:CreateWindow(Settings)
                         BackgroundTransparency = idleT,
                         TextColor3 = Y2K.Text,
                     }):Play()
-                    if btnStroke then
-                        TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
-                    end
+                    if btnStroke then TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play() end
                 end)
-
                 Btn.MouseButton1Click:Connect(function() task.spawn(Callback) end)
-
                 Deferred._bind(WrapElement(Btn, nil, nil))
             end)
             return Deferred
         end
 
-        -- ── Toggle ────────────────────────────────────────
         function TabElements:CreateToggle(Opts)
             Opts = Opts or {}
             local Name     = Opts.Title or Opts.Name or "Toggle"
@@ -1504,12 +1373,8 @@ function LunoLibrary:CreateWindow(Settings)
                 local function SetState(val)
                     Toggled = val and true or false
                     SetFlag(Flag, Toggled)
-                    TweenService:Create(Switch, TweenInfo.new(0.2), {
-                        BackgroundColor3 = Toggled and Y2K.Neon or Y2K.Track
-                    }):Play()
-                    TweenService:Create(Circle, TweenInfo.new(0.2), {
-                        Position = Toggled and OnPos or OffPos
-                    }):Play()
+                    TweenService:Create(Switch, TweenInfo.new(0.2), {BackgroundColor3 = Toggled and Y2K.Neon or Y2K.Track}):Play()
+                    TweenService:Create(Circle, TweenInfo.new(0.2), {Position = Toggled and OnPos or OffPos}):Play()
                     task.spawn(Callback, Toggled)
                 end
 
@@ -1518,15 +1383,11 @@ function LunoLibrary:CreateWindow(Settings)
                 local Obj = WrapElement(ToggleFrame, Flag, SetState)
                 if Flag then LunoLibrary.Elements[Flag] = Obj end
                 Deferred._bind(Obj)
-
-                if Toggled then
-                    task.spawn(Callback, Toggled)
-                end
+                if Toggled then task.spawn(Callback, Toggled) end
             end)
             return Deferred
         end
 
-        -- ── Slider ────────────────────────────────────────
         function TabElements:CreateSlider(Opts)
             Opts = Opts or {}
             local Name      = Opts.Title or Opts.Name or "Slider"
@@ -1664,9 +1525,7 @@ function LunoLibrary:CreateWindow(Settings)
                     if DraggingSlider and (
                         input.UserInputType == Enum.UserInputType.MouseMovement
                         or input.UserInputType == Enum.UserInputType.Touch
-                    ) then
-                        UpdateSlider(input)
-                    end
+                    ) then UpdateSlider(input) end
                 end))
 
                 local Obj = WrapElement(SliderFrame, Flag, SetSliderValue)
@@ -1676,371 +1535,334 @@ function LunoLibrary:CreateWindow(Settings)
             return Deferred
         end
 
-    -- ── Dropdown (Overlay-based, smart positioning, dim backdrop) ──
-function TabElements:CreateDropdown(Opts)
-    Opts = Opts or {}
-    local Name     = Opts.Title or Opts.Name or "Dropdown"
-    local Options  = Opts.Options or {"Option 1"}
-    local Multi    = Opts.Multi or false
-    local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
-    local Callback = Opts.Callback or function() end
-    local boxed    = InsideBox
-    local RowH     = UIScale.RowHeight
-    local OptH     = UIScale.OptionHeight
-    local OptPad   = 2
-    local GAP      = 8 -- jarak aman antara trigger & list
-    local Deferred = NewDeferred()
+        -- ══════════════════════════════════════════════════
+        -- DROPDOWN FIX - Posisi & ZIndex diperbaiki
+        -- ══════════════════════════════════════════════════
+        function TabElements:CreateDropdown(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title or Opts.Name or "Dropdown"
+            local Options  = Opts.Options or {"Option 1"}
+            local Multi    = Opts.Multi or false
+            local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
+            local Callback = Opts.Callback or function() end
+            local boxed    = InsideBox
+            local RowH     = UIScale.RowHeight
+            local OptH     = UIScale.OptionHeight
+            local OptPad   = 2
+            local Deferred = NewDeferred()
 
-    QueueOrRun(function()
-        local Selected
-        if Multi then
-            Selected = {}
-            if type(Opts.Default) == "table" then
-                for _, v in ipairs(Opts.Default) do table.insert(Selected, v) end
-            end
-        else
-            Selected = Opts.Default or Options[1]
-        end
-
-        local CurrentOptions = {}
-        for _, v in ipairs(Options) do table.insert(CurrentOptions, v) end
-        local OptButtons  = {}
-        local IsExpanded  = false
-        local FollowConn  = nil
-
-        SetFlag(Flag, Selected)
-
-        local DropFrame = Create("Frame", {
-            Size = UDim2.new(1, 0, 0, RowH),
-            ThemeBackground = "BgInput",
-            ClipsDescendants = true,
-            LayoutOrder = PrepareRow(),
-            Parent = CurrentContainer,
-        })
-        StyleRow(DropFrame, boxed)
-
-        Create("TextLabel", {
-            Size = UDim2.new(0.42, -14, 0, RowH),
-            Position = UDim2.new(0, 14, 0, 0),
-            BackgroundTransparency = 1,
-            Text = Name,
-            ThemeText = "Text",
-            TextSize = UIScale.ElementFontSize,
-            Font = FontBody,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            Parent = DropFrame,
-        })
-
-        local ValDisplay = Create("TextLabel", {
-            Size = UDim2.new(0.58, -44, 0, RowH),
-            Position = UDim2.new(0.42, 0, 0, 0),
-            BackgroundTransparency = 1,
-            Text = "",
-            ThemeText = "NeonSoft",
-            TextSize = UIScale.SmallFontSize,
-            Font = FontBody,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            Parent = DropFrame,
-        })
-
-        local Arrow = Create("TextLabel", {
-            Size = UDim2.new(0, 24, 0, RowH),
-            Position = UDim2.new(1, -32, 0, 0),
-            BackgroundTransparency = 1,
-            Text = "▼",
-            ThemeText = "NeonSoft",
-            TextSize = 11,
-            Font = FontBold,
-            Parent = DropFrame,
-        })
-
-        local TriggerBtn = Create("TextButton", {
-            Size = UDim2.new(1, 0, 0, RowH),
-            BackgroundTransparency = 1,
-            Text = "",
-            Parent = DropFrame,
-        })
-
-        -- Dim backdrop (full screen, di belakang list)
-        local DimBackdrop = Create("TextButton", {
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Color3.new(0, 0, 0),
-            BackgroundTransparency = 1,
-            AutoButtonColor = false,
-            Text = "",
-            Visible = false,
-            ZIndex = 598,
-            Parent = OverlayLayer,
-        })
-
-        local ListHolder = Create("ScrollingFrame", {
-            Size = UDim2.new(0, 200, 0, 0),
-            ThemeBackground = "BgPanel",
-            BorderSizePixel = 0,
-            ScrollBarThickness = 3,
-            ScrollBarImageColor3 = Y2K.Neon,
-            AutomaticCanvasSize = Enum.AutomaticSize.Y,
-            CanvasSize = UDim2.new(0, 0, 0, 0),
-            Visible = false,
-            ClipsDescendants = true,
-            ZIndex = 601,
-            Parent = OverlayLayer,
-        })
-        AddCorner(ListHolder, 8)
-        local listStroke = AddChromeStroke(ListHolder, 1.3, 0.2, true)
-        Create("UIPadding", {
-            PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
-            PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4),
-            Parent = ListHolder,
-        })
-        Create("UIListLayout", {
-            Padding = UDim.new(0, OptPad),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Parent = ListHolder,
-        })
-
-        local function DisplayText()
-            if Multi then
-                if #Selected == 0 then return "None" end
-                return table.concat(Selected, ", ")
-            end
-            return tostring(Selected)
-        end
-
-        local function FullListHeight(n)
-            local vis = math.min(n, UIScale.MaxDropdownVisible)
-            if vis <= 0 then return OptH + 8 end
-            return vis * OptH + math.max(vis - 1, 0) * OptPad + 8
-        end
-
-        local function IsSelected(opt)
-            if Multi then return table.find(Selected, opt) ~= nil end
-            return Selected == opt
-        end
-
-        local function UpdateHighlights()
-            for opt, btn in pairs(OptButtons) do
-                local sel = IsSelected(opt)
-                TweenService:Create(btn, TweenInfo.new(0.12), {
-                    BackgroundColor3 = sel and Y2K.NeonDim or Y2K.BgDeep,
-                    TextColor3 = sel and Y2K.Chrome or Y2K.Text,
-                }):Play()
-            end
-        end
-
-        local function SetDropdownValue(val)
-            if Multi then
-                local new = {}
-                if type(val) == "table" then
-                    for _, v in ipairs(val) do table.insert(new, v) end
+            QueueOrRun(function()
+                local Selected
+                if Multi then
+                    Selected = {}
+                    if type(Opts.Default) == "table" then
+                        for _, v in ipairs(Opts.Default) do table.insert(Selected, v) end
+                    end
+                else
+                    Selected = Opts.Default or Options[1]
                 end
-                Selected = new
-            else
-                Selected = val
-            end
-            ValDisplay.Text = DisplayText()
-            SetFlag(Flag, Selected)
-            UpdateHighlights()
-            task.spawn(Callback, Selected)
-        end
 
-        -- ── Smart Position: pilih ruang terbaik (atas/bawah) & clamp tinggi ──
-        local function PositionList()
-            local pos   = DropFrame.AbsolutePosition
-            local size  = DropFrame.AbsoluteSize
-            local vp    = Camera.ViewportSize
-            local margin = 10
+                local CurrentOptions = {}
+                for _, v in ipairs(Options) do table.insert(CurrentOptions, v) end
+                local OptButtons  = {}
+                local IsExpanded  = false
+                local FollowConn  = nil
 
-            local desiredH = FullListHeight(#CurrentOptions)
+                SetFlag(Flag, Selected)
 
-            local spaceBelow = vp.Y - (pos.Y + size.Y) - margin
-            local spaceAbove = pos.Y - margin
+                local DropFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    ThemeBackground = "BgInput",
+                    ClipsDescendants = true,
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(DropFrame, boxed)
 
-            local finalH
-            local y
+                Create("TextLabel", {
+                    Size = UDim2.new(0.42, -14, 0, RowH),
+                    Position = UDim2.new(0, 14, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = DropFrame,
+                })
 
-            if spaceBelow >= desiredH then
-                -- cukup ruang di bawah, pakai full height
-                finalH = desiredH
-                y = pos.Y + size.Y + GAP
-            elseif spaceAbove >= desiredH then
-                -- cukup ruang di atas, pakai full height
-                finalH = desiredH
-                y = pos.Y - desiredH - GAP
-            elseif spaceBelow >= spaceAbove then
-                -- tidak cukup di kedua sisi, pilih bawah & clamp (scrollable)
-                finalH = math.max(spaceBelow, OptH + 8)
-                y = pos.Y + size.Y + GAP
-            else
-                -- clamp di atas
-                finalH = math.max(spaceAbove, OptH + 8)
-                y = margin
-            end
+                local ValDisplay = Create("TextLabel", {
+                    Size = UDim2.new(0.58, -44, 0, RowH),
+                    Position = UDim2.new(0.42, 0, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    ThemeText = "NeonSoft",
+                    TextSize = UIScale.SmallFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = DropFrame,
+                })
 
-            local x = math.clamp(pos.X, 4, math.max(vp.X - math.max(size.X, 180) - 4, 4))
+                local Arrow = Create("TextLabel", {
+                    Size = UDim2.new(0, 24, 0, RowH),
+                    Position = UDim2.new(1, -32, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = "▼",
+                    ThemeText = "NeonSoft",
+                    TextSize = 11,
+                    Font = FontBold,
+                    Parent = DropFrame,
+                })
 
-            ListHolder.Position = UDim2.new(0, x, 0, y)
-            ListHolder.Size = UDim2.new(0, math.max(size.X, 180), 0, finalH)
-        end
+                local TriggerBtn = Create("TextButton", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    Parent = DropFrame,
+                })
 
-        local Blocker
-        local function CloseDropdown()
-            IsExpanded = false
-            Arrow.Text = "▼"
+                -- FIX: ZIndex ListHolder 1002 (di atas OverlayLayer 1000)
+                local ListHolder = Create("ScrollingFrame", {
+                    Size = UDim2.new(0, 200, 0, 0),
+                    ThemeBackground = "BgPanel2",
+                    BorderSizePixel = 0,
+                    ScrollBarThickness = 3,
+                    ScrollBarImageColor3 = Y2K.Neon,
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                    CanvasSize = UDim2.new(0, 0, 0, 0),
+                    ClipsDescendants = true,
+                    Visible = false,
+                    ZIndex = 1002,
+                    Parent = OverlayLayer,
+                })
+                AddCorner(ListHolder, 8)
+                AddChromeStroke(ListHolder, 1.2, 0.3)
+                Create("UIPadding", {
+                    PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
+                    PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4),
+                    Parent = ListHolder,
+                })
+                Create("UIListLayout", {
+                    Padding = UDim.new(0, OptPad),
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = ListHolder,
+                })
 
-            local fadeOut = TweenInfo.new(0.15, Enum.EasingStyle.Quad)
-            TweenService:Create(DimBackdrop, fadeOut, {BackgroundTransparency = 1}):Play()
-            local tw = TweenService:Create(ListHolder, fadeOut, {BackgroundTransparency = 1})
-            tw:Play()
+                local function DisplayText()
+                    if Multi then
+                        if #Selected == 0 then return "None" end
+                        return table.concat(Selected, ", ")
+                    end
+                    return tostring(Selected)
+                end
 
-            task.delay(0.15, function()
-                ListHolder.Visible = false
-                DimBackdrop.Visible = false
-                ListHolder.BackgroundTransparency = 0
+                local function ListHeight(n)
+                    local vis = math.min(n, UIScale.MaxDropdownVisible)
+                    if vis <= 0 then return 8 end
+                    return vis * OptH + math.max(vis - 1, 0) * OptPad + 8
+                end
+
+                local function IsSelected(opt)
+                    if Multi then return table.find(Selected, opt) ~= nil end
+                    return Selected == opt
+                end
+
+                local function UpdateHighlights()
+                    for opt, btn in pairs(OptButtons) do
+                        local sel = IsSelected(opt)
+                        TweenService:Create(btn, TweenInfo.new(0.12), {
+                            -- FIX: gunakan NeonDim untuk selected, bukan Neon/biru terang
+                            BackgroundColor3 = sel and Y2K.NeonDim or Y2K.BgDeep,
+                            TextColor3 = sel and Y2K.Chrome or Y2K.Text,
+                        }):Play()
+                    end
+                end
+
+                local function SetDropdownValue(val)
+                    if Multi then
+                        local new = {}
+                        if type(val) == "table" then
+                            for _, v in ipairs(val) do table.insert(new, v) end
+                        end
+                        Selected = new
+                    else
+                        Selected = val
+                    end
+                    ValDisplay.Text = DisplayText()
+                    SetFlag(Flag, Selected)
+                    UpdateHighlights()
+                    task.spawn(Callback, Selected)
+                end
+
+                -- FIX: Kalkulasi posisi dropdown yang benar
+                -- Prioritas: buka ke BAWAH dulu, kalau tidak muat baru ke atas
+                local function PositionList()
+                    local vp = Camera.ViewportSize
+                    local listH = ListHeight(#CurrentOptions)
+                    local listW = math.max(DropFrame.AbsoluteSize.X, 180)
+
+                    -- Gunakan AbsolutePosition dari DropFrame (koordinat screen)
+                    local frameAbsPos  = DropFrame.AbsolutePosition
+                    local frameAbsSize = DropFrame.AbsoluteSize
+
+                    -- Coba posisi di bawah frame
+                    local yBelow = frameAbsPos.Y + frameAbsSize.Y + 4
+                    local yAbove = frameAbsPos.Y - listH - 4
+
+                    local finalY
+                    if yBelow + listH <= vp.Y - 4 then
+                        -- Ada cukup ruang di bawah
+                        finalY = yBelow
+                    elseif yAbove >= 4 then
+                        -- Tidak muat di bawah, pakai atas
+                        finalY = yAbove
+                    else
+                        -- Paksa ke bawah kalau kedua tidak ideal
+                        finalY = yBelow
+                    end
+
+                    -- Clamp X agar tidak keluar layar
+                    local finalX = math.clamp(frameAbsPos.X, 4, math.max(vp.X - listW - 4, 4))
+
+                    ListHolder.Position = UDim2.new(0, finalX, 0, finalY)
+                    ListHolder.Size = UDim2.new(0, listW, 0, listH)
+                end
+
+                local Blocker
+                local function CloseDropdown()
+                    IsExpanded = false
+                    ListHolder.Visible = false
+                    Arrow.Text = "▼"
+                    if Blocker then Blocker:Destroy(); Blocker = nil end
+                    if FollowConn then FollowConn:Disconnect(); FollowConn = nil end
+                end
+
+                local function OpenDropdown()
+                    CloseAllOverlays()
+                    IsExpanded = true
+                    PositionList()
+                    ListHolder.Visible = true
+                    Arrow.Text = "▲"
+
+                    -- FIX: Blocker ZIndex 1001 (antara OverlayLayer 1000 dan ListHolder 1002)
+                    Blocker = Create("TextButton", {
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        ZIndex = 1001,
+                        Parent = OverlayLayer,
+                    })
+                    Blocker.MouseButton1Click:Connect(CloseDropdown)
+                    FollowConn = RegisterConnection(RunService.RenderStepped:Connect(PositionList))
+                    table.insert(ActiveOverlayClosers, CloseDropdown)
+                end
+
+                local function BuildOptions(NewOptions)
+                    for opt, btn in pairs(OptButtons) do
+                        local stillExists = false
+                        for _, o in ipairs(NewOptions) do
+                            if o == opt then stillExists = true break end
+                        end
+                        if not stillExists then
+                            btn:Destroy()
+                            OptButtons[opt] = nil
+                        end
+                    end
+                    CurrentOptions = {}
+                    for _, v in ipairs(NewOptions) do table.insert(CurrentOptions, v) end
+
+                    for i, opt in ipairs(NewOptions) do
+                        local btn = OptButtons[opt]
+                        if not btn then
+                            btn = Create("TextButton", {
+                                Size = UDim2.new(1, 0, 0, OptH),
+                                BackgroundColor3 = Y2K.BgDeep,
+                                Text = tostring(opt),
+                                TextColor3 = Y2K.Text,
+                                TextSize = UIScale.ElementFontSize,
+                                Font = FontBody,
+                                TextXAlignment = Enum.TextXAlignment.Left,
+                                TextTruncate = Enum.TextTruncate.AtEnd,
+                                AutoButtonColor = false,
+                                ZIndex = 1003,
+                                Parent = ListHolder,
+                            })
+                            AddCorner(btn, 6)
+                            Create("UIPadding", {
+                                PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8),
+                                Parent = btn,
+                            })
+                            btn.MouseEnter:Connect(function()
+                                if not IsSelected(opt) then
+                                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.Track}):Play()
+                                end
+                            end)
+                            btn.MouseLeave:Connect(function()
+                                if not IsSelected(opt) then
+                                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.BgDeep}):Play()
+                                end
+                            end)
+                            btn.MouseButton1Click:Connect(function()
+                                if Multi then
+                                    local new = {}
+                                    for _, v in ipairs(Selected) do table.insert(new, v) end
+                                    local idx = table.find(new, opt)
+                                    if idx then table.remove(new, idx) else table.insert(new, opt) end
+                                    SetDropdownValue(new)
+                                else
+                                    SetDropdownValue(opt)
+                                    CloseDropdown()
+                                end
+                            end)
+                            OptButtons[opt] = btn
+                        end
+                        btn.LayoutOrder = i
+                        btn.Text = tostring(opt)
+                    end
+                    UpdateHighlights()
+                end
+
+                local function RefreshOptions(NewOptions)
+                    BuildOptions(NewOptions)
+                    if Multi then
+                        local filtered, changed = {}, false
+                        for _, v in ipairs(Selected) do
+                            if table.find(NewOptions, v) then table.insert(filtered, v) else changed = true end
+                        end
+                        if changed then SetDropdownValue(filtered) end
+                    else
+                        local found = false
+                        for _, o in ipairs(NewOptions) do if o == Selected then found = true break end end
+                        if not found and NewOptions[1] ~= nil then SetDropdownValue(NewOptions[1]) end
+                    end
+                    if IsExpanded then PositionList() end
+                end
+
+                ValDisplay.Text = DisplayText()
+                BuildOptions(Options)
+
+                TriggerBtn.MouseButton1Click:Connect(function()
+                    if IsExpanded then CloseDropdown() else OpenDropdown() end
+                end)
+
+                local Obj = WrapElement(DropFrame, Flag, SetDropdownValue, {
+                    Refresh = function(self, opts) RefreshOptions(opts) end
+                })
+                local origDestroy = Obj.Destroy
+                Obj.Destroy = function(self)
+                    CloseDropdown()
+                    pcall(function() ListHolder:Destroy() end)
+                    origDestroy(self)
+                end
+
+                if Flag then LunoLibrary.Elements[Flag] = Obj end
+                Deferred._bind(Obj)
             end)
-
-            if Blocker then Blocker:Destroy(); Blocker = nil end
-            if FollowConn then FollowConn:Disconnect(); FollowConn = nil end
+            return Deferred
         end
 
-        local function OpenDropdown()
-            CloseAllOverlays()
-            IsExpanded = true
-            PositionList()
-
-            ListHolder.BackgroundTransparency = 1
-            ListHolder.Visible = true
-            DimBackdrop.BackgroundTransparency = 1
-            DimBackdrop.Visible = true
-            Arrow.Text = "▲"
-
-            TweenService:Create(DimBackdrop, TweenInfo.new(0.18), {BackgroundTransparency = 0.5}):Play()
-            TweenService:Create(ListHolder, TweenInfo.new(0.18), {BackgroundTransparency = 0}):Play()
-
-            Blocker = Create("TextButton", {
-                Size = UDim2.new(1, 0, 1, 0),
-                BackgroundTransparency = 1,
-                Text = "",
-                ZIndex = 599,
-                Parent = OverlayLayer,
-            })
-            Blocker.MouseButton1Click:Connect(CloseDropdown)
-            DimBackdrop.MouseButton1Click:Connect(CloseDropdown)
-
-            FollowConn = RegisterConnection(RunService.RenderStepped:Connect(PositionList))
-            table.insert(ActiveOverlayClosers, CloseDropdown)
-        end
-
-        local function BuildOptions(NewOptions)
-            for opt, btn in pairs(OptButtons) do
-                local stillExists = false
-                for _, o in ipairs(NewOptions) do
-                    if o == opt then stillExists = true break end
-                end
-                if not stillExists then
-                    btn:Destroy()
-                    OptButtons[opt] = nil
-                end
-            end
-            CurrentOptions = {}
-            for _, v in ipairs(NewOptions) do table.insert(CurrentOptions, v) end
-
-            for i, opt in ipairs(NewOptions) do
-                local btn = OptButtons[opt]
-                if not btn then
-                    btn = Create("TextButton", {
-                        Size = UDim2.new(1, 0, 0, OptH),
-                        BackgroundColor3 = Y2K.BgDeep,
-                        Text = tostring(opt),
-                        TextColor3 = Y2K.Text,
-                        TextSize = UIScale.ElementFontSize,
-                        Font = FontBody,
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        TextTruncate = Enum.TextTruncate.AtEnd,
-                        AutoButtonColor = false,
-                        ZIndex = 602,
-                        Parent = ListHolder,
-                    })
-                    AddCorner(btn, 6)
-                    Create("UIPadding", {
-                        PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8),
-                        Parent = btn,
-                    })
-                    btn.MouseEnter:Connect(function()
-                        if not IsSelected(opt) then
-                            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.Track}):Play()
-                        end
-                    end)
-                    btn.MouseLeave:Connect(function()
-                        if not IsSelected(opt) then
-                            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.BgDeep}):Play()
-                        end
-                    end)
-                    btn.MouseButton1Click:Connect(function()
-                        if Multi then
-                            local new = {}
-                            for _, v in ipairs(Selected) do table.insert(new, v) end
-                            local idx = table.find(new, opt)
-                            if idx then table.remove(new, idx) else table.insert(new, opt) end
-                            SetDropdownValue(new)
-                        else
-                            SetDropdownValue(opt)
-                            CloseDropdown()
-                        end
-                    end)
-                    OptButtons[opt] = btn
-                end
-                btn.LayoutOrder = i
-                btn.Text = tostring(opt)
-            end
-            UpdateHighlights()
-        end
-
-        local function RefreshOptions(NewOptions)
-            BuildOptions(NewOptions)
-            if Multi then
-                local filtered, changed = {}, false
-                for _, v in ipairs(Selected) do
-                    if table.find(NewOptions, v) then table.insert(filtered, v) else changed = true end
-                end
-                if changed then SetDropdownValue(filtered) end
-            else
-                local found = false
-                for _, o in ipairs(NewOptions) do if o == Selected then found = true break end end
-                if not found and NewOptions[1] ~= nil then
-                    SetDropdownValue(NewOptions[1])
-                end
-            end
-            if IsExpanded then PositionList() end
-        end
-
-        ValDisplay.Text = DisplayText()
-        BuildOptions(Options)
-
-        TriggerBtn.MouseButton1Click:Connect(function()
-            if IsExpanded then CloseDropdown() else OpenDropdown() end
-        end)
-
-        local Obj = WrapElement(DropFrame, Flag, SetDropdownValue, {
-            Refresh = function(self, opts) RefreshOptions(opts) end
-        })
-        local origDestroy = Obj.Destroy
-        Obj.Destroy = function(self)
-            CloseDropdown()
-            pcall(function() ListHolder:Destroy() end)
-            pcall(function() DimBackdrop:Destroy() end)
-            origDestroy(self)
-        end
-
-        if Flag then LunoLibrary.Elements[Flag] = Obj end
-        Deferred._bind(Obj)
-    end)
-    return Deferred
-end
-
-        -- ── Input ─────────────────────────────────────────
         function TabElements:CreateInput(Opts)
             Opts = Opts or {}
             local Name        = Opts.Title or Opts.Name or "Input"
@@ -2123,7 +1945,6 @@ end
             return Deferred
         end
 
-        -- ── Paragraph ─────────────────────────────────────
         function TabElements:CreateParagraph(Opts)
             Opts = Opts or {}
             local Title = Opts.Title or "Paragraph"
@@ -2147,11 +1968,7 @@ end
                     PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14),
                     Parent = ParaFrame,
                 })
-                Create("UIListLayout", {
-                    Padding = UDim.new(0, 4),
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    Parent = ParaFrame,
-                })
+                Create("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = ParaFrame})
 
                 local TitleLbl2 = Create("TextLabel", {
                     Size = UDim2.new(1, 0, 0, 18),
@@ -2190,7 +2007,6 @@ end
             return Deferred
         end
 
-        -- ── ColorPicker ─────────────────────────────────────
         function TabElements:CreateColorPicker(Opts)
             Opts = Opts or {}
             local Name     = Opts.Title or Opts.Name or "Color"
@@ -2240,7 +2056,7 @@ end
                     Size = UDim2.new(0, 220, 0, 185),
                     ThemeBackground = "BgPanel",
                     Visible = false,
-                    ZIndex = 600,
+                    ZIndex = 1002,
                     Parent = OverlayLayer,
                 })
                 AddCorner(Popup, 10)
@@ -2255,7 +2071,7 @@ end
                     Size = UDim2.new(1, 0, 0, 30),
                     BackgroundColor3 = Default,
                     LayoutOrder = 0,
-                    ZIndex = 601,
+                    ZIndex = 1003,
                     Parent = Popup,
                 })
                 AddCorner(Preview, 6)
@@ -2267,7 +2083,7 @@ end
                         Size = UDim2.new(1, 0, 0, 40),
                         BackgroundTransparency = 1,
                         LayoutOrder = order,
-                        ZIndex = 601,
+                        ZIndex = 1003,
                         Parent = Popup,
                     })
                     Create("TextLabel", {
@@ -2278,21 +2094,21 @@ end
                         TextSize = 12,
                         Font = FontBody,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        ZIndex = 601,
+                        ZIndex = 1003,
                         Parent = Row,
                     })
                     local Bar = Create("Frame", {
                         Size = UDim2.new(1, 0, 0, 8),
                         Position = UDim2.new(0, 0, 0, 22),
                         ThemeBackground = "Track",
-                        ZIndex = 601,
+                        ZIndex = 1003,
                         Parent = Row,
                     })
                     AddCorner(Bar, UDim.new(1, 0))
                     local Fill = Create("Frame", {
                         Size = UDim2.new(initVal, 0, 1, 0),
                         ThemeBackground = "Neon",
-                        ZIndex = 602,
+                        ZIndex = 1004,
                         Parent = Bar,
                     })
                     AddCorner(Fill, UDim.new(1, 0))
@@ -2300,7 +2116,7 @@ end
                         Size = UDim2.new(0, 12, 0, 12),
                         Position = UDim2.new(initVal, -6, 0.5, -6),
                         BackgroundColor3 = Y2K.Chrome,
-                        ZIndex = 603,
+                        ZIndex = 1005,
                         Parent = Bar,
                     })
                     AddCorner(Knob, UDim.new(1, 0))
@@ -2361,7 +2177,7 @@ end
                         Size = UDim2.new(1, 0, 1, 0),
                         BackgroundTransparency = 1,
                         Text = "",
-                        ZIndex = 599,
+                        ZIndex = 1001,
                         Parent = OverlayLayer,
                     })
                     Blocker.MouseButton1Click:Connect(ClosePopup)
@@ -2391,7 +2207,6 @@ end
             return Deferred
         end
 
-        -- ── Keybind ───────────────────────────────────────
         function TabElements:CreateKeybind(Opts)
             Opts = Opts or {}
             local Name     = Opts.Title or Opts.Name or "Keybind"
@@ -2475,7 +2290,6 @@ end
             return Deferred
         end
 
-        -- ── Script List ───────────────────────────────────
         function TabElements:CreateScriptList()
             local Deferred = NewDeferred()
             QueueOrRun(function()
@@ -2516,12 +2330,10 @@ end
                 Create("UIListLayout", {Padding = UDim.new(0, 6), Parent = ScrollList})
 
                 local CardsList = {}
-
                 local DoFilter = Debounce(function(text)
                     text = string.lower(text)
                     for _, item in ipairs(CardsList) do
-                        item.CardFrame.Visible =
-                            string.find(string.lower(item.Title), text, 1, true) ~= nil
+                        item.CardFrame.Visible = string.find(string.lower(item.Title), text, 1, true) ~= nil
                     end
                 end, 0.25)
 
@@ -2552,7 +2364,6 @@ end
                         BackgroundTransparency = 1,
                         Parent = Card,
                     })
-
                     Create("TextLabel", {
                         Size = UDim2.new(1, -160, 0, 20),
                         Position = UDim2.new(0, 58, 0, 9),
@@ -2565,7 +2376,6 @@ end
                         TextTruncate = Enum.TextTruncate.AtEnd,
                         Parent = Card,
                     })
-
                     Create("TextLabel", {
                         Size = UDim2.new(1, -160, 0, 16),
                         Position = UDim2.new(0, 58, 0, 31),
@@ -2616,7 +2426,6 @@ end
             return Deferred
         end
 
-        -- ── Aliases (shorter calling convention) ───────────
         TabElements.Section     = TabElements.CreateSection
         TabElements.Button      = TabElements.CreateButton
         TabElements.Toggle      = TabElements.CreateToggle
@@ -2635,19 +2444,13 @@ end
         return CreateTabInternal(TabName, FixedOrder, false, false, IconId)
     end
 
-    -- ══════════════════════════════════════════════════════
-    -- AUTO MISC TAB
-    -- ══════════════════════════════════════════════════════
     local MiscTab = CreateTabInternal("MISC", 9998, false, true)
 
     MiscTab:CreateSection("Movement Abilities", {Box = true})
 
     MiscTab:CreateSlider({
         Title    = "WalkSpeed Hack",
-        Min      = 16,
-        Max      = 300,
-        Default  = 16,
-        Suffix   = " spd",
+        Min      = 16, Max = 300, Default = 16, Suffix = " spd",
         Flag     = "WalkSpeedHack",
         Callback = function(Value)
             pcall(function()
@@ -2659,18 +2462,12 @@ end
 
     MiscTab:CreateSlider({
         Title    = "High Jump Power",
-        Min      = 50,
-        Max      = 300,
-        Default  = 50,
-        Suffix   = " pwr",
+        Min      = 50, Max = 300, Default = 50, Suffix = " pwr",
         Flag     = "HighJumpPower",
         Callback = function(Value)
             pcall(function()
                 local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.UseJumpPower = true
-                    hum.JumpPower    = Value
-                end
+                if hum then hum.UseJumpPower = true; hum.JumpPower = Value end
             end)
         end
     })
@@ -2682,13 +2479,9 @@ end
         local ws = LunoLibrary.Flags.WalkSpeedHack
         if ws and ws > 16 then hum.WalkSpeed = ws end
         local jp = LunoLibrary.Flags.HighJumpPower
-        if jp and jp > 50 then
-            hum.UseJumpPower = true
-            hum.JumpPower = jp
-        end
+        if jp and jp > 50 then hum.UseJumpPower = true; hum.JumpPower = jp end
     end))
 
-    -- ── Fly System ────────────────────────────────────────
     local Flying   = false
     local FlySpeed = 50
 
@@ -2707,10 +2500,7 @@ end
             end
         end)
     end
-    table.insert(CleanupTasks, function()
-        Flying = false
-        StopFlying()
-    end)
+    table.insert(CleanupTasks, function() Flying = false; StopFlying() end)
 
     RegisterConnection(RunService.RenderStepped:Connect(function()
         if not Flying then return end
@@ -2720,25 +2510,24 @@ end
             local hrp = char:FindFirstChild("HumanoidRootPart")
             local hum = char:FindFirstChildOfClass("Humanoid")
             if not hrp or not hum then return end
-
             hum.PlatformStand = true
 
             local bv = hrp:FindFirstChild("LunoFlyBV")
             if not bv then
                 bv = Instance.new("BodyVelocity")
-                bv.Name     = "LunoFlyBV"
+                bv.Name = "LunoFlyBV"
                 bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
                 bv.Velocity = Vector3.zero
-                bv.Parent   = hrp
+                bv.Parent = hrp
             end
 
             local bg = hrp:FindFirstChild("LunoFlyBG")
             if not bg then
                 bg = Instance.new("BodyGyro")
-                bg.Name      = "LunoFlyBG"
+                bg.Name = "LunoFlyBG"
                 bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-                bg.P         = 9e4
-                bg.Parent    = hrp
+                bg.P = 9e4
+                bg.Parent = hrp
             end
 
             local camCF = Camera.CFrame
@@ -2750,16 +2539,13 @@ end
                 local flatF = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z)
                 local flatR = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z)
                 if flatF.Magnitude > 0.001 and flatR.Magnitude > 0.001 then
-                    local df = md:Dot(flatF.Unit)
-                    local dr = md:Dot(flatR.Unit)
-                    moveVec = camCF.LookVector * df + camCF.RightVector * dr
+                    moveVec = camCF.LookVector * md:Dot(flatF.Unit) + camCF.RightVector * md:Dot(flatR.Unit)
                 end
             end
 
             if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
                 moveVec = moveVec + Vector3.new(0, 1, 0)
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
-                or UserInputService:IsKeyDown(Enum.KeyCode.E) then
+            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
                 moveVec = moveVec + Vector3.new(0, 0.5, 0)
             elseif UserInputService:IsKeyDown(Enum.KeyCode.Q) then
                 moveVec = moveVec - Vector3.new(0, 0.5, 0)
@@ -2770,28 +2556,16 @@ end
     end))
 
     MiscTab:CreateSection("Fly System", {Box = true})
-
     MiscTab:CreateToggle({
-        Title    = "Fly Hack",
-        Default  = false,
-        Flag     = "FlyHackState",
-        Callback = function(State)
-            Flying = State
-            if not State then StopFlying() end
-        end
+        Title = "Fly Hack", Default = false, Flag = "FlyHackState",
+        Callback = function(State) Flying = State; if not State then StopFlying() end end
     })
-
     MiscTab:CreateSlider({
-        Title    = "Fly Speed",
-        Min      = 10,
-        Max      = 300,
-        Default  = 50,
-        Suffix   = " spd",
-        Flag     = "FlySpeedValue",
+        Title = "Fly Speed", Min = 10, Max = 300, Default = 50, Suffix = " spd",
+        Flag = "FlySpeedValue",
         Callback = function(Value) FlySpeed = Value end
     })
 
-    -- ── ESP (fixed leak via ESPObjects keyed by Player) ────
     MiscTab:CreateSection("Visual ESP Elements", {Box = true})
 
     local BoxESPEnabled  = false
@@ -2806,9 +2580,7 @@ end
         end
     end
     RegisterConnection(Players.PlayerRemoving:Connect(ClearESPFor))
-    table.insert(CleanupTasks, function()
-        for plr in pairs(ESPObjects) do ClearESPFor(plr) end
-    end)
+    table.insert(CleanupTasks, function() for plr in pairs(ESPObjects) do ClearESPFor(plr) end end)
 
     RegisterConnection(RunService.RenderStepped:Connect(function()
         local myChar = LocalPlayer.Character
@@ -2824,12 +2596,12 @@ end
                     if BoxESPEnabled then
                         if not data.Highlight or not data.Highlight.Parent then
                             local hl = Instance.new("Highlight")
-                            hl.Name             = "LunoBoxESP"
-                            hl.FillColor        = Y2K.Neon
-                            hl.OutlineColor     = Y2K.Chrome
+                            hl.Name = "LunoBoxESP"
+                            hl.FillColor = Y2K.Neon
+                            hl.OutlineColor = Y2K.Chrome
                             hl.FillTransparency = 0.5
-                            hl.Parent           = char
-                            data.Highlight      = hl
+                            hl.Parent = char
+                            data.Highlight = hl
                         end
                     elseif data.Highlight then
                         data.Highlight:Destroy()
@@ -2840,21 +2612,20 @@ end
                     if NameESPEnabled and head then
                         if not data.Billboard or not data.Billboard.Parent then
                             local bg = Instance.new("BillboardGui")
-                            bg.Name        = "LunoNameESP"
-                            bg.Size        = UDim2.new(0, 130, 0, 36)
+                            bg.Name = "LunoNameESP"
+                            bg.Size = UDim2.new(0, 130, 0, 36)
                             bg.StudsOffset = Vector3.new(0, 2.5, 0)
                             bg.AlwaysOnTop = true
-
                             local lbl2 = Instance.new("TextLabel")
-                            lbl2.Name                   = "Txt"
-                            lbl2.Size                   = UDim2.new(1, 0, 1, 0)
+                            lbl2.Name = "Txt"
+                            lbl2.Size = UDim2.new(1, 0, 1, 0)
                             lbl2.BackgroundTransparency = 1
-                            lbl2.TextColor3             = Y2K.Cyan
+                            lbl2.TextColor3 = Y2K.Cyan
                             lbl2.TextStrokeTransparency = 0.4
-                            lbl2.TextSize               = 14
-                            lbl2.Font                   = FontBold
-                            lbl2.Parent                 = bg
-                            bg.Parent                   = head
+                            lbl2.TextSize = 14
+                            lbl2.Font = FontBold
+                            lbl2.Parent = bg
+                            bg.Parent = head
                             data.Billboard = bg
                         end
                         local thHRP = char:FindFirstChild("HumanoidRootPart")
@@ -2874,21 +2645,9 @@ end
         end
     end))
 
-    MiscTab:CreateToggle({
-        Title    = "Player Box ESP",
-        Default  = false,
-        Flag     = "PlayerBoxESP",
-        Callback = function(State) BoxESPEnabled = State end
-    })
+    MiscTab:CreateToggle({Title="Player Box ESP", Default=false, Flag="PlayerBoxESP", Callback=function(State) BoxESPEnabled=State end})
+    MiscTab:CreateToggle({Title="Player Name & Distance ESP", Default=false, Flag="PlayerNameESP", Callback=function(State) NameESPEnabled=State end})
 
-    MiscTab:CreateToggle({
-        Title    = "Player Name & Distance ESP",
-        Default  = false,
-        Flag     = "PlayerNameESP",
-        Callback = function(State) NameESPEnabled = State end
-    })
-
-    -- ── Teleport ──────────────────────────────────────────
     MiscTab:CreateSection("Player Teleport", {Box = true})
 
     local function GetPlayerNames()
@@ -2903,24 +2662,22 @@ end
     local PlayerDropdownObj2
 
     PlayerDropdownObj2 = MiscTab:CreateDropdown({
-        Title    = "Select Player Target",
-        Options  = GetPlayerNames(),
-        Multi    = false,
-        Flag     = "TeleportTargetPlayer",
+        Title = "Select Player Target",
+        Options = GetPlayerNames(),
+        Multi = false,
+        Flag = "TeleportTargetPlayer",
         Callback = function(Sel) TargetTeleportPlayer = Sel end
     })
 
     RegisterConnection(Players.PlayerAdded:Connect(function()
-        task.wait(0.2)
-        PlayerDropdownObj2:Refresh(GetPlayerNames())
+        task.wait(0.2); PlayerDropdownObj2:Refresh(GetPlayerNames())
     end))
     RegisterConnection(Players.PlayerRemoving:Connect(function()
-        task.wait(0.2)
-        PlayerDropdownObj2:Refresh(GetPlayerNames())
+        task.wait(0.2); PlayerDropdownObj2:Refresh(GetPlayerNames())
     end))
 
     MiscTab:CreateButton({
-        Title    = "Instant Teleport to Selected Player",
+        Title = "Instant Teleport to Selected Player",
         Callback = function()
             local tgt = Players:FindFirstChild(tostring(TargetTeleportPlayer))
             local myChar = LocalPlayer.Character
@@ -2928,24 +2685,13 @@ end
             and tgt.Character:FindFirstChild("HumanoidRootPart")
             and myChar and myChar:FindFirstChild("HumanoidRootPart") then
                 myChar.HumanoidRootPart.CFrame = tgt.Character.HumanoidRootPart.CFrame
-                LunoLibrary:Notify({
-                    Title   = "Teleport",
-                    Content = "Teleported to " .. tgt.Name,
-                    Type    = "Success",
-                    Duration = 2
-                })
+                LunoLibrary:Notify({Title="Teleport", Content="Teleported to " .. tgt.Name, Type="Success", Duration=2})
             else
-                LunoLibrary:Notify({
-                    Title   = "Teleport",
-                    Content = "Target not available.",
-                    Type    = "Error",
-                    Duration = 2
-                })
+                LunoLibrary:Notify({Title="Teleport", Content="Target not available.", Type="Error", Duration=2})
             end
         end
     })
 
-    -- ── Utilities ─────────────────────────────────────────
     MiscTab:CreateSection("Utilities & Protection", {Box = true})
 
     local AntiAFKEnabled     = true
@@ -2962,11 +2708,9 @@ end
 
     local function StartAntiAFK()
         if not AntiAFKIdleConn2 then
-            AntiAFKIdleConn2 = RegisterConnection(
-                LocalPlayer.Idled:Connect(function()
-                    if AntiAFKEnabled then AntiAFKPulse() end
-                end)
-            )
+            AntiAFKIdleConn2 = RegisterConnection(LocalPlayer.Idled:Connect(function()
+                if AntiAFKEnabled then AntiAFKPulse() end
+            end))
         end
         if not AntiAFKLoopRunning then
             AntiAFKLoopRunning = true
@@ -2979,15 +2723,11 @@ end
         end
     end
 
-    local function StopAntiAFK()
-        AntiAFKLoopRunning = false
-    end
+    local function StopAntiAFK() AntiAFKLoopRunning = false end
     table.insert(CleanupTasks, StopAntiAFK)
 
     MiscTab:CreateToggle({
-        Title    = "Anti-AFK Bypass (20-Min Protection)",
-        Default  = true,
-        Flag     = "AntiAFKBypass",
+        Title = "Anti-AFK Bypass (20-Min Protection)", Default = true, Flag = "AntiAFKBypass",
         Callback = function(State)
             AntiAFKEnabled = State
             if State then StartAntiAFK() else StopAntiAFK() end
@@ -2995,7 +2735,7 @@ end
     })
 
     MiscTab:CreateButton({
-        Title    = "100% Anti-Lag FPS Booster",
+        Title = "100% Anti-Lag FPS Booster",
         Callback = function()
             pcall(function()
                 Lighting.GlobalShadows = false
@@ -3005,28 +2745,18 @@ end
                         obj.Material = Enum.Material.SmoothPlastic
                     elseif obj:IsA("Decal") or obj:IsA("Texture") then
                         obj:Destroy()
-                    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail")
-                        or obj:IsA("Smoke") or obj:IsA("Fire") then
+                    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") then
                         obj.Enabled = false
                     end
                 end
             end)
-            LunoLibrary:Notify({
-                Title   = "FPS Booster",
-                Content = "Anti-Lag Applied!",
-                Type    = "Success",
-                Duration = 3
-            })
+            LunoLibrary:Notify({Title="FPS Booster", Content="Anti-Lag Applied!", Type="Success", Duration=3})
         end
     })
 
     StartAntiAFK()
 
-    -- ══════════════════════════════════════════════════════
-    -- AUTO CONFIG TAB
-    -- ══════════════════════════════════════════════════════
     local ConfigTab = CreateTabInternal("Config", 9999, false, true)
-
     ConfigTab:CreateSection("Configuration Manager", {Box = true})
 
     local TypedConfigName    = ""
@@ -3047,24 +2777,20 @@ end
     SelectedConfigName = GetSavedConfigNames()[1] or ""
 
     ConfigTab:CreateInput({
-        Title       = "Custom Config Name",
-        Placeholder = "Type config name...",
-        Callback    = function(Text) TypedConfigName = Text end
+        Title = "Custom Config Name", Placeholder = "Type config name...",
+        Callback = function(Text) TypedConfigName = Text end
     })
 
     ConfigTab:CreateButton({
-        Title    = "Save Config (Using Name Above)",
+        Title = "Save Config (Using Name Above)",
         Callback = function()
             local saveName = (#TypedConfigName > 0) and TypedConfigName or "default_config"
             saveName = saveName:gsub("[^%w_%-%s]", "")
             if saveName == "" then saveName = "default_config" end
             SafeMakeFolder("LunoConfigs")
-            SafeWriteFile(
-                "LunoConfigs/" .. saveName .. ".json",
-                HttpService:JSONEncode(LunoLibrary.Flags)
-            )
+            SafeWriteFile("LunoConfigs/" .. saveName .. ".json", HttpService:JSONEncode(LunoLibrary.Flags))
             SelectedConfigName = saveName
-            LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. saveName, Type = "Success", Duration = 3})
+            LunoLibrary:Notify({Title="Config Saved", Content="Saved as: " .. saveName, Type="Success", Duration=3})
             if ConfigDropdownObj2 then
                 ConfigDropdownObj2:Refresh(GetSavedConfigNames())
                 ConfigDropdownObj2:Set(saveName)
@@ -3075,14 +2801,12 @@ end
     ConfigTab:CreateSection("Load, Delete & Share", {Box = true})
 
     ConfigDropdownObj2 = ConfigTab:CreateDropdown({
-        Title    = "Select Saved Config",
-        Options  = GetSavedConfigNames(),
-        Multi    = false,
-        Flag     = false,
+        Title = "Select Saved Config",
+        Options = GetSavedConfigNames(),
+        Multi = false,
+        Flag = false,
         Callback = function(Sel)
-            if Sel and Sel ~= "No Saved Configs" then
-                SelectedConfigName = Sel
-            end
+            if Sel and Sel ~= "No Saved Configs" then SelectedConfigName = Sel end
         end
     })
 
@@ -3098,35 +2822,35 @@ end
     end
 
     ConfigTab:CreateButton({
-        Title    = "Load Selected Config",
+        Title = "Load Selected Config",
         Callback = function()
             local target = SelectedConfigName
             if not target or target == "" or target == "No Saved Configs" then
                 target = GetSavedConfigNames()[1] or ""
             end
             if target == "" or target == "No Saved Configs" then
-                LunoLibrary:Notify({Title = "Error", Content = "No valid config!", Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="No valid config!", Type="Error", Duration=3})
                 return
             end
             local content = SafeReadFile("LunoConfigs/" .. target .. ".json")
             if not content then
-                LunoLibrary:Notify({Title = "Error", Content = "File not found: " .. target, Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="File not found: " .. target, Type="Error", Duration=3})
                 return
             end
             local ok, data = pcall(function() return HttpService:JSONDecode(content) end)
             if ok and ApplyConfigData(data) then
-                LunoLibrary:Notify({Title = "Config Loaded", Content = "Loaded: " .. target, Type = "Success", Duration = 3})
+                LunoLibrary:Notify({Title="Config Loaded", Content="Loaded: " .. target, Type="Success", Duration=3})
             else
-                LunoLibrary:Notify({Title = "Error", Content = "Corrupted config!", Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="Corrupted config!", Type="Error", Duration=3})
             end
         end
     })
 
     ConfigTab:CreateButton({
-        Title    = "Delete Selected Config",
+        Title = "Delete Selected Config",
         Callback = function()
             if SelectedConfigName == "" or SelectedConfigName == "No Saved Configs" then
-                LunoLibrary:Notify({Title = "Error", Content = "No config selected.", Type = "Error", Duration = 2})
+                LunoLibrary:Notify({Title="Error", Content="No config selected.", Type="Error", Duration=2})
                 return
             end
             LunoLibrary:Confirm({
@@ -3135,7 +2859,7 @@ end
                 ConfirmText = "Delete",
                 OnConfirm = function()
                     SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
-                    LunoLibrary:Notify({Title = "Deleted", Content = "Deleted: " .. SelectedConfigName, Type = "Success", Duration = 3})
+                    LunoLibrary:Notify({Title="Deleted", Content="Deleted: " .. SelectedConfigName, Type="Success", Duration=3})
                     local nl = GetSavedConfigNames()
                     SelectedConfigName = nl[1] or ""
                     ConfigDropdownObj2:Refresh(nl)
@@ -3145,46 +2869,43 @@ end
     })
 
     ConfigTab:CreateButton({
-        Title    = "Refresh Config List",
+        Title = "Refresh Config List",
         Callback = function()
             ConfigDropdownObj2:Refresh(GetSavedConfigNames())
-            LunoLibrary:Notify({Title = "Refreshed", Content = "Config list updated!", Duration = 2})
+            LunoLibrary:Notify({Title="Refreshed", Content="Config list updated!", Duration=2})
         end
     })
 
     ConfigTab:CreateButton({
-        Title    = "Export Current Config to Clipboard",
+        Title = "Export Current Config to Clipboard",
         Callback = function()
             local ok, encoded = pcall(function() return HttpService:JSONEncode(LunoLibrary.Flags) end)
             if ok then
                 RealSetClipboard(encoded)
-                LunoLibrary:Notify({Title = "Exported", Content = "Config copied to clipboard!", Type = "Success", Duration = 3})
+                LunoLibrary:Notify({Title="Exported", Content="Config copied to clipboard!", Type="Success", Duration=3})
             else
-                LunoLibrary:Notify({Title = "Error", Content = "Failed to export config.", Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="Failed to export config.", Type="Error", Duration=3})
             end
         end
     })
 
     ConfigTab:CreateButton({
-        Title    = "Import Config from Clipboard",
+        Title = "Import Config from Clipboard",
         Callback = function()
             local clipboard = RealGetClipboard()
             if not clipboard or clipboard == "" then
-                LunoLibrary:Notify({Title = "Error", Content = "Clipboard is empty!", Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="Clipboard is empty!", Type="Error", Duration=3})
                 return
             end
             local ok, data = pcall(function() return HttpService:JSONDecode(clipboard) end)
             if ok and ApplyConfigData(data) then
-                LunoLibrary:Notify({Title = "Imported", Content = "Config loaded from clipboard!", Type = "Success", Duration = 3})
+                LunoLibrary:Notify({Title="Imported", Content="Config loaded from clipboard!", Type="Success", Duration=3})
             else
-                LunoLibrary:Notify({Title = "Error", Content = "Invalid config format!", Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Error", Content="Invalid config format!", Type="Error", Duration=3})
             end
         end
     })
 
-    -- ══════════════════════════════════════════════════════
-    -- HIDDEN PROFILE PAGE
-    -- ══════════════════════════════════════════════════════
     local ProfilePage = Create("Frame", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
@@ -3195,9 +2916,7 @@ end
     local ProfileTabObj = { Holder = nil, Page = ProfilePage, Hidden = true, Loaded = true, Flush = function() end }
     Tabs["__UserProfile__"] = ProfileTabObj
 
-    UserCard.MouseButton1Click:Connect(function()
-        SwitchTab(ProfileTabObj)
-    end)
+    UserCard.MouseButton1Click:Connect(function() SwitchTab(ProfileTabObj) end)
 
     local ProfileScroll2 = Create("ScrollingFrame", {
         Size = UDim2.new(1, 0, 1, 0),
@@ -3210,17 +2929,11 @@ end
         Parent = ProfilePage,
     })
     Create("UIPadding", {
-        PaddingLeft = UDim.new(0, 4),
-        PaddingRight = UDim.new(0, 10),
-        PaddingTop = UDim.new(0, 2),
-        PaddingBottom = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 10),
+        PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 10),
         Parent = ProfileScroll2,
     })
-    Create("UIListLayout", {
-        Padding = UDim.new(0, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = ProfileScroll2,
-    })
+    Create("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = ProfileScroll2})
 
     local ProfileOrder = 0
     local function CreateProfileItem(Text, CB)
@@ -3242,88 +2955,56 @@ end
         PBtn.TextXAlignment = Enum.TextXAlignment.Left
         local pStroke = AddChromeStroke(PBtn, 1, 0.6)
         AddHoverGlow(PBtn, pStroke)
-
         if CB then PBtn.MouseButton1Click:Connect(function() task.spawn(CB) end) end
     end
 
     local function CopyNotify(label, value)
         RealSetClipboard(value)
-        LunoLibrary:Notify({Title = "Copied", Content = label .. " copied to clipboard.", Duration = 2})
+        LunoLibrary:Notify({Title="Copied", Content=label.." copied to clipboard.", Duration=2})
     end
 
     local function ServerHop(order, needPlayers)
         task.spawn(function()
-            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId
-                .. "/servers/0?sortOrder=" .. order .. "&limit=100"
+            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/0?sortOrder=" .. order .. "&limit=100"
             local raw = SafeHttpGet(url)
             if not raw then
-                LunoLibrary:Notify({Title = "Server Hop", Content = "Failed to fetch server list.", Type = "Error", Duration = 3})
+                LunoLibrary:Notify({Title="Server Hop", Content="Failed to fetch server list.", Type="Error", Duration=3})
                 return
             end
             local ok, body = pcall(function() return HttpService:JSONDecode(raw) end)
             if ok and body and body.data then
                 for _, s in ipairs(body.data) do
-                    if s.id ~= game.JobId
-                    and s.playing < s.maxPlayers
-                    and (not needPlayers or s.playing > 0) then
-                        LunoLibrary:Notify({Title = "Server Hop", Content = "Teleporting...", Duration = 2})
+                    if s.id ~= game.JobId and s.playing < s.maxPlayers and (not needPlayers or s.playing > 0) then
+                        LunoLibrary:Notify({Title="Server Hop", Content="Teleporting...", Duration=2})
                         TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer)
                         return
                     end
                 end
             end
-            LunoLibrary:Notify({Title = "Server Hop", Content = "No server found.", Type = "Warning", Duration = 3})
+            LunoLibrary:Notify({Title="Server Hop", Content="No server found.", Type="Warning", Duration=3})
         end)
     end
 
-    CreateProfileItem("Username: " .. LocalPlayer.Name, function()
-        CopyNotify("Username", LocalPlayer.Name)
-    end)
-    CreateProfileItem("User ID: " .. tostring(LocalPlayer.UserId), function()
-        CopyNotify("User ID", tostring(LocalPlayer.UserId))
-    end)
+    CreateProfileItem("Username: " .. LocalPlayer.Name, function() CopyNotify("Username", LocalPlayer.Name) end)
+    CreateProfileItem("User ID: " .. tostring(LocalPlayer.UserId), function() CopyNotify("User ID", tostring(LocalPlayer.UserId)) end)
     CreateProfileItem("Game: " .. CurrentGameName, nil)
-    CreateProfileItem("Job ID: " .. tostring(game.JobId), function()
-        CopyNotify("Job ID", tostring(game.JobId))
-    end)
+    CreateProfileItem("Job ID: " .. tostring(game.JobId), function() CopyNotify("Job ID", tostring(game.JobId)) end)
     CreateProfileItem("Rejoin Server", function()
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-        end)
+        pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
     end)
-    CreateProfileItem("Server Hop (Random)", function()
-        ServerHop("Desc", false)
-    end)
-    CreateProfileItem("Small Server Hop (Lowest Players)", function()
-        ServerHop("Asc", true)
-    end)
+    CreateProfileItem("Server Hop (Random)", function() ServerHop("Desc", false) end)
+    CreateProfileItem("Small Server Hop (Lowest Players)", function() ServerHop("Asc", true) end)
 
     SwitchTab(Tabs["MISC"])
 
-    -- ══════════════════════════════════════════════════════
-    -- AUTO DEVICE DETECTION NOTIFICATION
-    -- ══════════════════════════════════════════════════════
     task.delay(0.6, function()
         if not MainScreenGui or not MainScreenGui.Parent then return end
-
         if DeviceType == "PC" then
-            LunoLibrary:Notify({
-                Title    = "PC / Laptop Detected",
-                Content  = "Press " .. ToggleKeyName .. " to hide / show the menu.",
-                Duration = 6,
-            })
+            LunoLibrary:Notify({Title="PC / Laptop Detected", Content="Press " .. ToggleKeyName .. " to hide / show the menu.", Duration=6})
         elseif DeviceType == "Tablet" then
-            LunoLibrary:Notify({
-                Title    = "Tablet Detected",
-                Content  = "Tap the LUNO floating button to hide / show the menu.",
-                Duration = 6,
-            })
+            LunoLibrary:Notify({Title="Tablet Detected", Content="Tap the LUNO floating button to hide / show the menu.", Duration=6})
         else
-            LunoLibrary:Notify({
-                Title    = "Mobile Detected",
-                Content  = "Tap the LUNO floating button to hide / show the menu.",
-                Duration = 6,
-            })
+            LunoLibrary:Notify({Title="Mobile Detected", Content="Tap the LUNO floating button to hide / show the menu.", Duration=6})
         end
     end)
 
