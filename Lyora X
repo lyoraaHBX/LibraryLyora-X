@@ -1676,308 +1676,369 @@ function LunoLibrary:CreateWindow(Settings)
             return Deferred
         end
 
-        -- ── Dropdown (Overlay-based, reused buttons) ───────
-        function TabElements:CreateDropdown(Opts)
-            Opts = Opts or {}
-            local Name     = Opts.Title or Opts.Name or "Dropdown"
-            local Options  = Opts.Options or {"Option 1"}
-            local Multi    = Opts.Multi or false
-            local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
-            local Callback = Opts.Callback or function() end
-            local boxed    = InsideBox
-            local RowH     = UIScale.RowHeight
-            local OptH     = UIScale.OptionHeight
-            local OptPad   = 2
-            local Deferred = NewDeferred()
+    -- ── Dropdown (Overlay-based, smart positioning, dim backdrop) ──
+function TabElements:CreateDropdown(Opts)
+    Opts = Opts or {}
+    local Name     = Opts.Title or Opts.Name or "Dropdown"
+    local Options  = Opts.Options or {"Option 1"}
+    local Multi    = Opts.Multi or false
+    local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
+    local Callback = Opts.Callback or function() end
+    local boxed    = InsideBox
+    local RowH     = UIScale.RowHeight
+    local OptH     = UIScale.OptionHeight
+    local OptPad   = 2
+    local GAP      = 8 -- jarak aman antara trigger & list
+    local Deferred = NewDeferred()
 
-            QueueOrRun(function()
-                local Selected
-                if Multi then
-                    Selected = {}
-                    if type(Opts.Default) == "table" then
-                        for _, v in ipairs(Opts.Default) do table.insert(Selected, v) end
-                    end
-                else
-                    Selected = Opts.Default or Options[1]
-                end
-
-                local CurrentOptions = {}
-                for _, v in ipairs(Options) do table.insert(CurrentOptions, v) end
-                local OptButtons  = {}
-                local IsExpanded  = false
-                local FollowConn  = nil
-
-                SetFlag(Flag, Selected)
-
-                local DropFrame = Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, RowH),
-                    ThemeBackground = "BgInput",
-                    ClipsDescendants = true,
-                    LayoutOrder = PrepareRow(),
-                    Parent = CurrentContainer,
-                })
-                StyleRow(DropFrame, boxed)
-
-                Create("TextLabel", {
-                    Size = UDim2.new(0.42, -14, 0, RowH),
-                    Position = UDim2.new(0, 14, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = Name,
-                    ThemeText = "Text",
-                    TextSize = UIScale.ElementFontSize,
-                    Font = FontBody,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    Parent = DropFrame,
-                })
-
-                local ValDisplay = Create("TextLabel", {
-                    Size = UDim2.new(0.58, -44, 0, RowH),
-                    Position = UDim2.new(0.42, 0, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = "",
-                    ThemeText = "NeonSoft",
-                    TextSize = UIScale.SmallFontSize,
-                    Font = FontBody,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    Parent = DropFrame,
-                })
-
-                local Arrow = Create("TextLabel", {
-                    Size = UDim2.new(0, 24, 0, RowH),
-                    Position = UDim2.new(1, -32, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = "▼",
-                    ThemeText = "NeonSoft",
-                    TextSize = 11,
-                    Font = FontBold,
-                    Parent = DropFrame,
-                })
-
-                local TriggerBtn = Create("TextButton", {
-                    Size = UDim2.new(1, 0, 0, RowH),
-                    BackgroundTransparency = 1,
-                    Text = "",
-                    Parent = DropFrame,
-                })
-
-                local ListHolder = Create("ScrollingFrame", {
-                    Size = UDim2.new(0, 200, 0, 0),
-                    ThemeBackground = "BgPanel",
-                    BorderSizePixel = 0,
-                    ScrollBarThickness = 3,
-                    ScrollBarImageColor3 = Y2K.Neon,
-                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                    CanvasSize = UDim2.new(0, 0, 0, 0),
-                    Visible = false,
-                    ZIndex = 601,
-                    Parent = OverlayLayer,
-                })
-                AddCorner(ListHolder, 8)
-                AddChromeStroke(ListHolder, 1, 0.4)
-                Create("UIPadding", {
-                    PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
-                    PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4),
-                    Parent = ListHolder,
-                })
-                Create("UIListLayout", {
-                    Padding = UDim.new(0, OptPad),
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    Parent = ListHolder,
-                })
-
-                local function DisplayText()
-                    if Multi then
-                        if #Selected == 0 then return "None" end
-                        return table.concat(Selected, ", ")
-                    end
-                    return tostring(Selected)
-                end
-
-                local function ListHeight(n)
-                    local vis = math.min(n, UIScale.MaxDropdownVisible)
-                    if vis <= 0 then return 0 end
-                    return vis * OptH + math.max(vis - 1, 0) * OptPad + 8
-                end
-
-                local function IsSelected(opt)
-                    if Multi then return table.find(Selected, opt) ~= nil end
-                    return Selected == opt
-                end
-
-                local function UpdateHighlights()
-                    for opt, btn in pairs(OptButtons) do
-                        local sel = IsSelected(opt)
-                        TweenService:Create(btn, TweenInfo.new(0.12), {
-                            BackgroundColor3 = sel and Y2K.NeonDim or Y2K.BgDeep,
-                            TextColor3 = sel and Y2K.Chrome or Y2K.Text,
-                        }):Play()
-                    end
-                end
-
-                local function SetDropdownValue(val)
-                    if Multi then
-                        local new = {}
-                        if type(val) == "table" then
-                            for _, v in ipairs(val) do table.insert(new, v) end
-                        end
-                        Selected = new
-                    else
-                        Selected = val
-                    end
-                    ValDisplay.Text = DisplayText()
-                    SetFlag(Flag, Selected)
-                    UpdateHighlights()
-                    task.spawn(Callback, Selected)
-                end
-
-                local function PositionList()
-                    local pos  = DropFrame.AbsolutePosition
-                    local size = DropFrame.AbsoluteSize
-                    local listH = ListHeight(#CurrentOptions)
-                    local vp = Camera.ViewportSize
-                    local x = math.clamp(pos.X, 4, math.max(vp.X - 204, 4))
-                    local y = pos.Y + size.Y + 4
-                    if y + listH > vp.Y - 4 then
-                        y = pos.Y - listH - 4
-                    end
-                    ListHolder.Position = UDim2.new(0, x, 0, y)
-                    ListHolder.Size = UDim2.new(0, math.max(size.X, 180), 0, listH)
-                end
-
-                local Blocker
-                local function CloseDropdown()
-                    IsExpanded = false
-                    ListHolder.Visible = false
-                    Arrow.Text = "▼"
-                    if Blocker then Blocker:Destroy(); Blocker = nil end
-                    if FollowConn then FollowConn:Disconnect(); FollowConn = nil end
-                end
-
-                local function OpenDropdown()
-                    CloseAllOverlays()
-                    IsExpanded = true
-                    PositionList()
-                    ListHolder.Visible = true
-                    Arrow.Text = "▲"
-                    Blocker = Create("TextButton", {
-                        Size = UDim2.new(1, 0, 1, 0),
-                        BackgroundTransparency = 1,
-                        Text = "",
-                        ZIndex = 599,
-                        Parent = OverlayLayer,
-                    })
-                    Blocker.MouseButton1Click:Connect(CloseDropdown)
-                    FollowConn = RegisterConnection(RunService.RenderStepped:Connect(PositionList))
-                    table.insert(ActiveOverlayClosers, CloseDropdown)
-                end
-
-                local function BuildOptions(NewOptions)
-                    for opt, btn in pairs(OptButtons) do
-                        local stillExists = false
-                        for _, o in ipairs(NewOptions) do
-                            if o == opt then stillExists = true break end
-                        end
-                        if not stillExists then
-                            btn:Destroy()
-                            OptButtons[opt] = nil
-                        end
-                    end
-                    CurrentOptions = {}
-                    for _, v in ipairs(NewOptions) do table.insert(CurrentOptions, v) end
-
-                    for i, opt in ipairs(NewOptions) do
-                        local btn = OptButtons[opt]
-                        if not btn then
-                            btn = Create("TextButton", {
-                                Size = UDim2.new(1, 0, 0, OptH),
-                                BackgroundColor3 = Y2K.BgDeep,
-                                Text = tostring(opt),
-                                TextColor3 = Y2K.Text,
-                                TextSize = UIScale.ElementFontSize,
-                                Font = FontBody,
-                                TextXAlignment = Enum.TextXAlignment.Left,
-                                TextTruncate = Enum.TextTruncate.AtEnd,
-                                AutoButtonColor = false,
-                                ZIndex = 602,
-                                Parent = ListHolder,
-                            })
-                            AddCorner(btn, 6)
-                            Create("UIPadding", {
-                                PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8),
-                                Parent = btn,
-                            })
-                            btn.MouseEnter:Connect(function()
-                                if not IsSelected(opt) then
-                                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.Track}):Play()
-                                end
-                            end)
-                            btn.MouseLeave:Connect(function()
-                                if not IsSelected(opt) then
-                                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.BgDeep}):Play()
-                                end
-                            end)
-                            btn.MouseButton1Click:Connect(function()
-                                if Multi then
-                                    local new = {}
-                                    for _, v in ipairs(Selected) do table.insert(new, v) end
-                                    local idx = table.find(new, opt)
-                                    if idx then table.remove(new, idx) else table.insert(new, opt) end
-                                    SetDropdownValue(new)
-                                else
-                                    SetDropdownValue(opt)
-                                    CloseDropdown()
-                                end
-                            end)
-                            OptButtons[opt] = btn
-                        end
-                        btn.LayoutOrder = i
-                        btn.Text = tostring(opt)
-                    end
-                    UpdateHighlights()
-                end
-
-                local function RefreshOptions(NewOptions)
-                    BuildOptions(NewOptions)
-                    if Multi then
-                        local filtered, changed = {}, false
-                        for _, v in ipairs(Selected) do
-                            if table.find(NewOptions, v) then table.insert(filtered, v) else changed = true end
-                        end
-                        if changed then SetDropdownValue(filtered) end
-                    else
-                        local found = false
-                        for _, o in ipairs(NewOptions) do if o == Selected then found = true break end end
-                        if not found and NewOptions[1] ~= nil then
-                            SetDropdownValue(NewOptions[1])
-                        end
-                    end
-                    if IsExpanded then PositionList() end
-                end
-
-                ValDisplay.Text = DisplayText()
-                BuildOptions(Options)
-
-                TriggerBtn.MouseButton1Click:Connect(function()
-                    if IsExpanded then CloseDropdown() else OpenDropdown() end
-                end)
-
-                local Obj = WrapElement(DropFrame, Flag, SetDropdownValue, {
-                    Refresh = function(self, opts) RefreshOptions(opts) end
-                })
-                local origDestroy = Obj.Destroy
-                Obj.Destroy = function(self)
-                    CloseDropdown()
-                    pcall(function() ListHolder:Destroy() end)
-                    origDestroy(self)
-                end
-
-                if Flag then LunoLibrary.Elements[Flag] = Obj end
-                Deferred._bind(Obj)
-            end)
-            return Deferred
+    QueueOrRun(function()
+        local Selected
+        if Multi then
+            Selected = {}
+            if type(Opts.Default) == "table" then
+                for _, v in ipairs(Opts.Default) do table.insert(Selected, v) end
+            end
+        else
+            Selected = Opts.Default or Options[1]
         end
+
+        local CurrentOptions = {}
+        for _, v in ipairs(Options) do table.insert(CurrentOptions, v) end
+        local OptButtons  = {}
+        local IsExpanded  = false
+        local FollowConn  = nil
+
+        SetFlag(Flag, Selected)
+
+        local DropFrame = Create("Frame", {
+            Size = UDim2.new(1, 0, 0, RowH),
+            ThemeBackground = "BgInput",
+            ClipsDescendants = true,
+            LayoutOrder = PrepareRow(),
+            Parent = CurrentContainer,
+        })
+        StyleRow(DropFrame, boxed)
+
+        Create("TextLabel", {
+            Size = UDim2.new(0.42, -14, 0, RowH),
+            Position = UDim2.new(0, 14, 0, 0),
+            BackgroundTransparency = 1,
+            Text = Name,
+            ThemeText = "Text",
+            TextSize = UIScale.ElementFontSize,
+            Font = FontBody,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Parent = DropFrame,
+        })
+
+        local ValDisplay = Create("TextLabel", {
+            Size = UDim2.new(0.58, -44, 0, RowH),
+            Position = UDim2.new(0.42, 0, 0, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ThemeText = "NeonSoft",
+            TextSize = UIScale.SmallFontSize,
+            Font = FontBody,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Parent = DropFrame,
+        })
+
+        local Arrow = Create("TextLabel", {
+            Size = UDim2.new(0, 24, 0, RowH),
+            Position = UDim2.new(1, -32, 0, 0),
+            BackgroundTransparency = 1,
+            Text = "▼",
+            ThemeText = "NeonSoft",
+            TextSize = 11,
+            Font = FontBold,
+            Parent = DropFrame,
+        })
+
+        local TriggerBtn = Create("TextButton", {
+            Size = UDim2.new(1, 0, 0, RowH),
+            BackgroundTransparency = 1,
+            Text = "",
+            Parent = DropFrame,
+        })
+
+        -- Dim backdrop (full screen, di belakang list)
+        local DimBackdrop = Create("TextButton", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BackgroundTransparency = 1,
+            AutoButtonColor = false,
+            Text = "",
+            Visible = false,
+            ZIndex = 598,
+            Parent = OverlayLayer,
+        })
+
+        local ListHolder = Create("ScrollingFrame", {
+            Size = UDim2.new(0, 200, 0, 0),
+            ThemeBackground = "BgPanel",
+            BorderSizePixel = 0,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Y2K.Neon,
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            Visible = false,
+            ClipsDescendants = true,
+            ZIndex = 601,
+            Parent = OverlayLayer,
+        })
+        AddCorner(ListHolder, 8)
+        local listStroke = AddChromeStroke(ListHolder, 1.3, 0.2, true)
+        Create("UIPadding", {
+            PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4),
+            Parent = ListHolder,
+        })
+        Create("UIListLayout", {
+            Padding = UDim.new(0, OptPad),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Parent = ListHolder,
+        })
+
+        local function DisplayText()
+            if Multi then
+                if #Selected == 0 then return "None" end
+                return table.concat(Selected, ", ")
+            end
+            return tostring(Selected)
+        end
+
+        local function FullListHeight(n)
+            local vis = math.min(n, UIScale.MaxDropdownVisible)
+            if vis <= 0 then return OptH + 8 end
+            return vis * OptH + math.max(vis - 1, 0) * OptPad + 8
+        end
+
+        local function IsSelected(opt)
+            if Multi then return table.find(Selected, opt) ~= nil end
+            return Selected == opt
+        end
+
+        local function UpdateHighlights()
+            for opt, btn in pairs(OptButtons) do
+                local sel = IsSelected(opt)
+                TweenService:Create(btn, TweenInfo.new(0.12), {
+                    BackgroundColor3 = sel and Y2K.NeonDim or Y2K.BgDeep,
+                    TextColor3 = sel and Y2K.Chrome or Y2K.Text,
+                }):Play()
+            end
+        end
+
+        local function SetDropdownValue(val)
+            if Multi then
+                local new = {}
+                if type(val) == "table" then
+                    for _, v in ipairs(val) do table.insert(new, v) end
+                end
+                Selected = new
+            else
+                Selected = val
+            end
+            ValDisplay.Text = DisplayText()
+            SetFlag(Flag, Selected)
+            UpdateHighlights()
+            task.spawn(Callback, Selected)
+        end
+
+        -- ── Smart Position: pilih ruang terbaik (atas/bawah) & clamp tinggi ──
+        local function PositionList()
+            local pos   = DropFrame.AbsolutePosition
+            local size  = DropFrame.AbsoluteSize
+            local vp    = Camera.ViewportSize
+            local margin = 10
+
+            local desiredH = FullListHeight(#CurrentOptions)
+
+            local spaceBelow = vp.Y - (pos.Y + size.Y) - margin
+            local spaceAbove = pos.Y - margin
+
+            local finalH
+            local y
+
+            if spaceBelow >= desiredH then
+                -- cukup ruang di bawah, pakai full height
+                finalH = desiredH
+                y = pos.Y + size.Y + GAP
+            elseif spaceAbove >= desiredH then
+                -- cukup ruang di atas, pakai full height
+                finalH = desiredH
+                y = pos.Y - desiredH - GAP
+            elseif spaceBelow >= spaceAbove then
+                -- tidak cukup di kedua sisi, pilih bawah & clamp (scrollable)
+                finalH = math.max(spaceBelow, OptH + 8)
+                y = pos.Y + size.Y + GAP
+            else
+                -- clamp di atas
+                finalH = math.max(spaceAbove, OptH + 8)
+                y = margin
+            end
+
+            local x = math.clamp(pos.X, 4, math.max(vp.X - math.max(size.X, 180) - 4, 4))
+
+            ListHolder.Position = UDim2.new(0, x, 0, y)
+            ListHolder.Size = UDim2.new(0, math.max(size.X, 180), 0, finalH)
+        end
+
+        local Blocker
+        local function CloseDropdown()
+            IsExpanded = false
+            Arrow.Text = "▼"
+
+            local fadeOut = TweenInfo.new(0.15, Enum.EasingStyle.Quad)
+            TweenService:Create(DimBackdrop, fadeOut, {BackgroundTransparency = 1}):Play()
+            local tw = TweenService:Create(ListHolder, fadeOut, {BackgroundTransparency = 1})
+            tw:Play()
+
+            task.delay(0.15, function()
+                ListHolder.Visible = false
+                DimBackdrop.Visible = false
+                ListHolder.BackgroundTransparency = 0
+            end)
+
+            if Blocker then Blocker:Destroy(); Blocker = nil end
+            if FollowConn then FollowConn:Disconnect(); FollowConn = nil end
+        end
+
+        local function OpenDropdown()
+            CloseAllOverlays()
+            IsExpanded = true
+            PositionList()
+
+            ListHolder.BackgroundTransparency = 1
+            ListHolder.Visible = true
+            DimBackdrop.BackgroundTransparency = 1
+            DimBackdrop.Visible = true
+            Arrow.Text = "▲"
+
+            TweenService:Create(DimBackdrop, TweenInfo.new(0.18), {BackgroundTransparency = 0.5}):Play()
+            TweenService:Create(ListHolder, TweenInfo.new(0.18), {BackgroundTransparency = 0}):Play()
+
+            Blocker = Create("TextButton", {
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "",
+                ZIndex = 599,
+                Parent = OverlayLayer,
+            })
+            Blocker.MouseButton1Click:Connect(CloseDropdown)
+            DimBackdrop.MouseButton1Click:Connect(CloseDropdown)
+
+            FollowConn = RegisterConnection(RunService.RenderStepped:Connect(PositionList))
+            table.insert(ActiveOverlayClosers, CloseDropdown)
+        end
+
+        local function BuildOptions(NewOptions)
+            for opt, btn in pairs(OptButtons) do
+                local stillExists = false
+                for _, o in ipairs(NewOptions) do
+                    if o == opt then stillExists = true break end
+                end
+                if not stillExists then
+                    btn:Destroy()
+                    OptButtons[opt] = nil
+                end
+            end
+            CurrentOptions = {}
+            for _, v in ipairs(NewOptions) do table.insert(CurrentOptions, v) end
+
+            for i, opt in ipairs(NewOptions) do
+                local btn = OptButtons[opt]
+                if not btn then
+                    btn = Create("TextButton", {
+                        Size = UDim2.new(1, 0, 0, OptH),
+                        BackgroundColor3 = Y2K.BgDeep,
+                        Text = tostring(opt),
+                        TextColor3 = Y2K.Text,
+                        TextSize = UIScale.ElementFontSize,
+                        Font = FontBody,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
+                        AutoButtonColor = false,
+                        ZIndex = 602,
+                        Parent = ListHolder,
+                    })
+                    AddCorner(btn, 6)
+                    Create("UIPadding", {
+                        PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8),
+                        Parent = btn,
+                    })
+                    btn.MouseEnter:Connect(function()
+                        if not IsSelected(opt) then
+                            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.Track}):Play()
+                        end
+                    end)
+                    btn.MouseLeave:Connect(function()
+                        if not IsSelected(opt) then
+                            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.BgDeep}):Play()
+                        end
+                    end)
+                    btn.MouseButton1Click:Connect(function()
+                        if Multi then
+                            local new = {}
+                            for _, v in ipairs(Selected) do table.insert(new, v) end
+                            local idx = table.find(new, opt)
+                            if idx then table.remove(new, idx) else table.insert(new, opt) end
+                            SetDropdownValue(new)
+                        else
+                            SetDropdownValue(opt)
+                            CloseDropdown()
+                        end
+                    end)
+                    OptButtons[opt] = btn
+                end
+                btn.LayoutOrder = i
+                btn.Text = tostring(opt)
+            end
+            UpdateHighlights()
+        end
+
+        local function RefreshOptions(NewOptions)
+            BuildOptions(NewOptions)
+            if Multi then
+                local filtered, changed = {}, false
+                for _, v in ipairs(Selected) do
+                    if table.find(NewOptions, v) then table.insert(filtered, v) else changed = true end
+                end
+                if changed then SetDropdownValue(filtered) end
+            else
+                local found = false
+                for _, o in ipairs(NewOptions) do if o == Selected then found = true break end end
+                if not found and NewOptions[1] ~= nil then
+                    SetDropdownValue(NewOptions[1])
+                end
+            end
+            if IsExpanded then PositionList() end
+        end
+
+        ValDisplay.Text = DisplayText()
+        BuildOptions(Options)
+
+        TriggerBtn.MouseButton1Click:Connect(function()
+            if IsExpanded then CloseDropdown() else OpenDropdown() end
+        end)
+
+        local Obj = WrapElement(DropFrame, Flag, SetDropdownValue, {
+            Refresh = function(self, opts) RefreshOptions(opts) end
+        })
+        local origDestroy = Obj.Destroy
+        Obj.Destroy = function(self)
+            CloseDropdown()
+            pcall(function() ListHolder:Destroy() end)
+            pcall(function() DimBackdrop:Destroy() end)
+            origDestroy(self)
+        end
+
+        if Flag then LunoLibrary.Elements[Flag] = Obj end
+        Deferred._bind(Obj)
+    end)
+    return Deferred
+end
 
         -- ── Input ─────────────────────────────────────────
         function TabElements:CreateInput(Opts)
