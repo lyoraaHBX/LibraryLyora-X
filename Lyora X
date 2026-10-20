@@ -17,8 +17,8 @@ local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
 
 local ActiveConnections = {}
-local ESPStorage        = {}
 local CleanupTasks      = {}
+local ESPObjects        = {} -- [Player] = {Highlight=, Billboard=}
 
 local function RegisterConnection(Conn)
     table.insert(ActiveConnections, Conn)
@@ -40,7 +40,6 @@ local function ByDevice(pc, tablet, mobile)
     return mobile
 end
 
--- ── UI Scaling (Responsive per Device) ────────────────────
 local UIScale = {
     SidebarWidth     = ByDevice(200, 180, 155),
     TabButtonHeight  = ByDevice(42, 38, 34),
@@ -66,7 +65,7 @@ local WindowInset = 6
 local SidebarGap  = UIScale.SidebarWidth + WindowInset * 2
 
 -- ══════════════════════════════════════════════════════════
--- Y2K CHROME PALETTE
+-- THEME ENGINE (registry-based)
 -- ══════════════════════════════════════════════════════════
 local Y2K = {
     Bg        = Color3.fromRGB(2, 3, 8),
@@ -86,17 +85,42 @@ local Y2K = {
     TextMute  = Color3.fromRGB(85, 100, 130),
 }
 
+local ThemeRegistry = {}
+local function Themed(inst, prop, key)
+    table.insert(ThemeRegistry, {Instance = inst, Prop = prop, Key = key})
+    pcall(function() inst[prop] = Y2K[key] end)
+    return inst
+end
+
+local function ApplyTheme(newTheme)
+    for k, v in pairs(newTheme or {}) do
+        Y2K[k] = v
+    end
+    for _, entry in ipairs(ThemeRegistry) do
+        if entry.Instance and entry.Instance.Parent then
+            pcall(function() entry.Instance[entry.Prop] = Y2K[entry.Key] end)
+        end
+    end
+end
+
 local FontBody  = Enum.Font.GothamMedium
 local FontBold  = Enum.Font.GothamBold
 local FontBlack = Enum.Font.GothamBlack
 
--- ── Generic Helpers ───────────────────────────────────────
+-- ── Generic Helpers (Create w/ Theme support) ─────────────
 local function Create(class, props)
     local inst = Instance.new(class)
-    local parent
+    local parent, themeBG, themeText, themeStroke
     for k, v in pairs(props or {}) do
-        if k == "Parent" then parent = v else inst[k] = v end
+        if k == "Parent" then parent = v
+        elseif k == "ThemeBackground" then themeBG = v
+        elseif k == "ThemeText" then themeText = v
+        elseif k == "ThemeStroke" then themeStroke = v
+        else inst[k] = v end
     end
+    if themeBG then Themed(inst, "BackgroundColor3", themeBG) end
+    if themeText then Themed(inst, "TextColor3", themeText) end
+    if themeStroke then Themed(inst, "Color", themeStroke) end
     if parent then inst.Parent = parent end
     return inst
 end
@@ -108,7 +132,6 @@ local function AddCorner(obj, r)
     return c
 end
 
--- ── Shimmer System (chrome border animation, 1 loop only) ─
 local ShimmerGradients = {}
 RegisterConnection(RunService.Heartbeat:Connect(function(dt)
     for i = #ShimmerGradients, 1, -1 do
@@ -132,6 +155,7 @@ local function AddChromeStroke(parent, thickness, transparency, shimmer)
     st.Transparency    = transparency or 0.5
     st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     st.Parent          = parent
+    Themed(st, "Color", "Neon")
     if shimmer then
         local g = Instance.new("UIGradient")
         g.Color = ColorSequence.new({
@@ -182,6 +206,48 @@ local function RealSetClipboard(text)
     elseif syn and syn.write_clipboard then syn.write_clipboard(text)
     end
 end
+local function RealGetClipboard()
+    local ok, res = pcall(function()
+        if getclipboard then return getclipboard() end
+        if syn and syn.read_clipboard then return syn.read_clipboard() end
+        return ""
+    end)
+    if ok then return res end
+    return ""
+end
+
+-- ── Fallback HTTP ─────────────────────────────────────────
+local function SafeHttpGet(url)
+    local ok, result = pcall(function()
+        if syn and syn.request then
+            return syn.request({Url = url, Method = "GET"}).Body
+        elseif http_request then
+            return http_request({Url = url, Method = "GET"}).Body
+        elseif request then
+            return request({Url = url, Method = "GET"}).Body
+        else
+            return game:HttpGet(url)
+        end
+    end)
+    if ok then return result end
+    return nil
+end
+
+-- ── Debounce Helper (trailing) ────────────────────────────
+local function Debounce(fn, delay)
+    delay = delay or 0.3
+    local token = 0
+    return function(...)
+        token = token + 1
+        local myToken = token
+        local args = {...}
+        task.delay(delay, function()
+            if token == myToken then
+                fn(table.unpack(args))
+            end
+        end)
+    end
+end
 
 -- ── Safe File Helpers ─────────────────────────────────────
 local function SafeWriteFile(path, content)
@@ -229,21 +295,109 @@ end
 local LunoLibrary  = {}
 LunoLibrary.Flags    = {}
 LunoLibrary.Elements = {}
+LunoLibrary.Theme    = Y2K
+LunoLibrary.SetTheme = ApplyTheme
 
 local function SetFlag(flag, value)
     if flag then LunoLibrary.Flags[flag] = value end
 end
 
+-- ══════════════════════════════════════════════════════════
+-- WRAP ELEMENT + DEFERRED (lazy load support)
+-- ══════════════════════════════════════════════════════════
+local function WrapElement(Instance, Flag, SetterFn, ExtraMethods)
+    local Obj = {Instance = Instance}
+    function Obj:Set(v)
+        if SetterFn then SetterFn(v) end
+    end
+    function Obj:Get()
+        if Flag then return LunoLibrary.Flags[Flag] end
+    end
+    function Obj:Destroy()
+        if Instance then pcall(function() Instance:Destroy() end) end
+    end
+    function Obj:SetVisible(v)
+        if Instance then Instance.Visible = v end
+    end
+    if ExtraMethods then
+        for k, fn in pairs(ExtraMethods) do
+            Obj[k] = fn
+        end
+    end
+    return Obj
+end
+
+local function NewDeferred()
+    local real = nil
+    local queue = {}
+    local D = {}
+    local function enqueueOrRun(method, ...)
+        if real then
+            local fn = real[method]
+            if fn then return fn(real, ...) end
+        else
+            table.insert(queue, {method, {...}})
+        end
+    end
+    function D:Set(...) return enqueueOrRun("Set", ...) end
+    function D:Get() if real then return real:Get() end end
+    function D:Destroy() return enqueueOrRun("Destroy") end
+    function D:SetVisible(v) return enqueueOrRun("SetVisible", v) end
+    function D:Refresh(...) return enqueueOrRun("Refresh", ...) end
+    function D._bind(obj)
+        real = obj
+        for _, c in ipairs(queue) do
+            local fn = real[c[1]]
+            if fn then pcall(fn, real, table.unpack(c[2])) end
+        end
+        queue = {}
+    end
+    return D
+end
+
+-- ── Main ScreenGui ────────────────────────────────────────
 local MainScreenGui = Instance.new("ScreenGui")
-MainScreenGui.Name           = "LunoUILibrary_v16"
+MainScreenGui.Name           = "LunoUILibrary_v17"
 MainScreenGui.ResetOnSpawn   = false
 MainScreenGui.DisplayOrder   = 100
+MainScreenGui.IgnoreGuiInset = true
 MainScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 if syn and syn.protect_gui then
     syn.protect_gui(MainScreenGui)
 end
 MainScreenGui.Parent = GetParentGui()
+
+-- ── Global Overlay Layer (dropdown/colorpicker/confirm) ───
+local OverlayLayer = Create("Frame", {
+    Name = "OverlayLayer",
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    ZIndex = 500,
+    Parent = MainScreenGui,
+})
+
+local ActiveOverlayClosers = {}
+local function CloseAllOverlays()
+    local closers = ActiveOverlayClosers
+    ActiveOverlayClosers = {}
+    for _, fn in ipairs(closers) do pcall(fn) end
+end
+
+RegisterConnection(UserInputService.InputBegan:Connect(function(input)
+    -- ESC closes overlays
+    if input.KeyCode == Enum.KeyCode.Escape then
+        CloseAllOverlays()
+    end
+end))
+
+-- ── Clamp helper for dragging ──────────────────────────────
+local function ClampToScreen(pos, size)
+    local vp = Camera.ViewportSize
+    local minX, minY = -size.X + 80, 0
+    local maxX, maxY = vp.X - 80, vp.Y - 40
+    return UDim2.new(0, math.clamp(pos.X, minX, maxX), 0, math.clamp(pos.Y, minY, maxY))
+end
 
 getgenv().LunoUI_Cleanup = function()
     for _, fn in ipairs(CleanupTasks) do
@@ -252,9 +406,12 @@ getgenv().LunoUI_Cleanup = function()
     for _, conn in ipairs(ActiveConnections) do
         pcall(function() conn:Disconnect() end)
     end
-    for _, item in pairs(ESPStorage) do
-        pcall(function() item:Destroy() end)
+    for plr, data in pairs(ESPObjects) do
+        if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
+        if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
     end
+    ESPObjects = {}
+    ThemeRegistry = {}
     if MainScreenGui and MainScreenGui.Parent then
         MainScreenGui:Destroy()
     end
@@ -262,9 +419,18 @@ getgenv().LunoUI_Cleanup = function()
 end
 
 -- ══════════════════════════════════════════════════════════
--- NOTIFICATION SYSTEM
+-- NOTIFICATION SYSTEM (typed, limited)
 -- ══════════════════════════════════════════════════════════
 local NotifyWidth = 290
+local MAX_TOASTS  = 5
+local ActiveToasts = {}
+
+local ToastColors = {
+    Info    = Y2K.Neon,
+    Success = Color3.fromRGB(70, 220, 130),
+    Warning = Color3.fromRGB(255, 190, 60),
+    Error   = Color3.fromRGB(255, 80, 90),
+}
 
 local NotifyContainer = Create("Frame", {
     Name = "NotifyContainer",
@@ -287,9 +453,17 @@ function LunoLibrary:Notify(Settings)
     local Title    = Settings.Title    or "Notification"
     local Content  = Settings.Content  or "Details..."
     local Duration = Settings.Duration or 3
+    local Type     = Settings.Type     or "Info"
+    local Accent   = ToastColors[Type] or Y2K.Neon
 
-    -- hitung tinggi teks agar toast menyesuaikan isi
-    local textW = NotifyWidth - 24
+    if #ActiveToasts >= MAX_TOASTS then
+        local oldest = table.remove(ActiveToasts, 1)
+        if oldest and oldest.Parent then
+            pcall(function() oldest:Destroy() end)
+        end
+    end
+
+    local textW = NotifyWidth - 30
     local textH = 16
     pcall(function()
         textH = TextService:GetTextSize(Content, 13, FontBody, Vector2.new(textW, 1000)).Y
@@ -303,7 +477,15 @@ function LunoLibrary:Notify(Settings)
         Parent = NotifyContainer,
     })
     AddCorner(Toast, 10)
-    AddChromeStroke(Toast, 1.2, 0.25, true)
+    local stroke = AddChromeStroke(Toast, 1.2, 0.25, true)
+    stroke.Color = Accent
+
+    Create("Frame", {
+        Size = UDim2.new(0, 3, 1, 0),
+        BackgroundColor3 = Accent,
+        BorderSizePixel = 0,
+        Parent = Toast,
+    })
 
     Create("TextLabel", {
         Size = UDim2.new(1, -24, 0, 20),
@@ -331,6 +513,8 @@ function LunoLibrary:Notify(Settings)
         Parent = Toast,
     })
 
+    table.insert(ActiveToasts, Toast)
+
     TweenService:Create(Toast,
         TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
         {Size = UDim2.new(1, 0, 0, totalH)}
@@ -338,6 +522,9 @@ function LunoLibrary:Notify(Settings)
 
     task.delay(Duration, function()
         if not Toast.Parent then return end
+        for i, t in ipairs(ActiveToasts) do
+            if t == Toast then table.remove(ActiveToasts, i) break end
+        end
         local tw = TweenService:Create(Toast,
             TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In),
             {Size = UDim2.new(1, 0, 0, 0)}
@@ -345,6 +532,104 @@ function LunoLibrary:Notify(Settings)
         tw:Play()
         tw.Completed:Connect(function() Toast:Destroy() end)
     end)
+end
+
+-- ══════════════════════════════════════════════════════════
+-- CONFIRM DIALOG
+-- ══════════════════════════════════════════════════════════
+function LunoLibrary:Confirm(Settings)
+    Settings = Settings or {}
+    local Title       = Settings.Title or "Confirm Action"
+    local Content     = Settings.Content or "Are you sure?"
+    local OnConfirm   = Settings.OnConfirm or function() end
+    local OnCancel    = Settings.OnCancel or function() end
+    local ConfirmText = Settings.ConfirmText or "Confirm"
+    local CancelText  = Settings.CancelText or "Cancel"
+
+    CloseAllOverlays()
+
+    local Backdrop = Create("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.new(0, 0, 0),
+        BackgroundTransparency = 0.45,
+        ZIndex = 700,
+        Parent = OverlayLayer,
+    })
+
+    local Box = Create("Frame", {
+        Size = UDim2.new(0, 320, 0, 170),
+        Position = UDim2.new(0.5, -160, 0.5, -85),
+        BackgroundColor3 = Y2K.BgPanel2,
+        ZIndex = 701,
+        Parent = Backdrop,
+    })
+    AddCorner(Box, 12)
+    AddChromeStroke(Box, 1.5, 0.2, true)
+
+    Create("TextLabel", {
+        Size = UDim2.new(1, -30, 0, 24),
+        Position = UDim2.new(0, 15, 0, 15),
+        BackgroundTransparency = 1,
+        Text = Title,
+        TextColor3 = Y2K.Chrome,
+        TextSize = 18,
+        Font = FontBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 702,
+        Parent = Box,
+    })
+
+    Create("TextLabel", {
+        Size = UDim2.new(1, -30, 0, 65),
+        Position = UDim2.new(0, 15, 0, 44),
+        BackgroundTransparency = 1,
+        Text = Content,
+        TextColor3 = Y2K.TextDim,
+        TextSize = 14,
+        Font = FontBody,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        TextWrapped = true,
+        ZIndex = 702,
+        Parent = Box,
+    })
+
+    local function MakeBtn(text, posX, bgColor)
+        local btn = Create("TextButton", {
+            Size = UDim2.new(0, 135, 0, 36),
+            Position = UDim2.new(0, posX, 1, -50),
+            BackgroundColor3 = bgColor,
+            Text = text,
+            TextColor3 = Color3.fromRGB(255, 255, 255),
+            TextSize = 14,
+            Font = FontBold,
+            AutoButtonColor = false,
+            ZIndex = 702,
+            Parent = Box,
+        })
+        AddCorner(btn, 8)
+        return btn
+    end
+
+    local CancelBtn  = MakeBtn(CancelText, 15, Y2K.BgDeep)
+    local ConfirmBtn = MakeBtn(ConfirmText, 170, Y2K.Pink)
+    AddChromeStroke(CancelBtn, 1, 0.5)
+    AddChromeStroke(ConfirmBtn, 1, 0.3)
+
+    local function Close()
+        pcall(function() Backdrop:Destroy() end)
+    end
+
+    ConfirmBtn.MouseButton1Click:Connect(function()
+        Close()
+        task.spawn(OnConfirm)
+    end)
+    CancelBtn.MouseButton1Click:Connect(function()
+        Close()
+        task.spawn(OnCancel)
+    end)
+
+    table.insert(ActiveOverlayClosers, Close)
 end
 
 -- ══════════════════════════════════════════════════════════
@@ -356,7 +641,6 @@ function LunoLibrary:CreateWindow(Settings)
     local SubTitleText  = Settings.SubTitle or "by LUNAR"
     local DiscordInvite = Settings.Discord  or "https://discord.gg/lunar"
 
-    -- Toggle key (default: RightShift)
     local ToggleKey = Settings.ToggleKey or Enum.KeyCode.RightShift
     if typeof(ToggleKey) == "string" then
         ToggleKey = Enum.KeyCode[ToggleKey] or Enum.KeyCode.RightShift
@@ -377,7 +661,7 @@ function LunoLibrary:CreateWindow(Settings)
         Name = "MainFrame",
         Size = UDim2.new(0, BaseWidth, 0, BaseHeight),
         Position = UDim2.new(0.5, -BaseWidth / 2, 0.5, -BaseHeight / 2),
-        BackgroundColor3 = Y2K.Bg,
+        ThemeBackground = "Bg",
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Parent = MainScreenGui,
@@ -385,7 +669,7 @@ function LunoLibrary:CreateWindow(Settings)
     AddCorner(MainFrame, 14)
     AddChromeStroke(MainFrame, 1.5, 0.15, true)
 
-    -- ── Dragging (hanya dari header: Banner & Logo) ───────
+    -- ── Dragging (with clamp) ──────────────────────────────
     local Dragging, DragStart, StartPos = false, nil, nil
     local function BindDrag(handle)
         handle.InputBegan:Connect(function(input)
@@ -408,10 +692,8 @@ function LunoLibrary:CreateWindow(Settings)
             or input.UserInputType == Enum.UserInputType.Touch
         ) then
             local delta = input.Position - DragStart
-            MainFrame.Position = UDim2.new(
-                StartPos.X.Scale, StartPos.X.Offset + delta.X,
-                StartPos.Y.Scale, StartPos.Y.Offset + delta.Y
-            )
+            local newPos = Vector2.new(StartPos.X.Offset + delta.X, StartPos.Y.Offset + delta.Y)
+            MainFrame.Position = ClampToScreen(newPos, MainFrame.AbsoluteSize)
         end
     end))
 
@@ -518,10 +800,8 @@ function LunoLibrary:CreateWindow(Settings)
         ) then
             local delta = input.Position - FloatDragStart
             if delta.Magnitude > 6 then FloatMoved = true end
-            FloatingPopUp.Position = UDim2.new(
-                FloatStartPos.X.Scale, FloatStartPos.X.Offset + delta.X,
-                FloatStartPos.Y.Scale, FloatStartPos.Y.Offset + delta.Y
-            )
+            local newPos = Vector2.new(FloatStartPos.X.Offset + delta.X, FloatStartPos.Y.Offset + delta.Y)
+            FloatingPopUp.Position = ClampToScreen(newPos, FloatingPopUp.AbsoluteSize)
         end
     end))
 
@@ -530,7 +810,7 @@ function LunoLibrary:CreateWindow(Settings)
         Name = "LeftSidebar",
         Size = UDim2.new(0, UIScale.SidebarWidth, 1, -WindowInset * 2),
         Position = UDim2.new(0, WindowInset, 0, WindowInset),
-        BackgroundColor3 = Y2K.BgPanel,
+        ThemeBackground = "BgPanel",
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Parent = MainFrame,
@@ -538,12 +818,11 @@ function LunoLibrary:CreateWindow(Settings)
     AddCorner(LeftSidebar, 11)
     AddChromeStroke(LeftSidebar, 1, 0.55, true)
 
-    -- Logo Header
     local LogoHeaderCard = Create("Frame", {
         Name = "LogoHeaderCard",
         Size = UDim2.new(1, -16, 0, 65),
         Position = UDim2.new(0, 8, 0, 8),
-        BackgroundColor3 = Y2K.BgPanel2,
+        ThemeBackground = "BgPanel2",
         ClipsDescendants = true,
         Parent = LeftSidebar,
     })
@@ -563,7 +842,7 @@ function LunoLibrary:CreateWindow(Settings)
     local GlowOrb = Create("Frame", {
         Size = UDim2.new(0, 140, 0, 140),
         Position = UDim2.new(0.5, -70, 0, -50),
-        BackgroundColor3 = Y2K.Neon,
+        ThemeBackground = "Neon",
         BackgroundTransparency = 0.88,
         BorderSizePixel = 0,
         ZIndex = 0,
@@ -589,7 +868,7 @@ function LunoLibrary:CreateWindow(Settings)
         Position = UDim2.new(0, 12, 0, 38),
         BackgroundTransparency = 1,
         Text = SubTitleText,
-        TextColor3 = Y2K.NeonSoft,
+        ThemeText = "NeonSoft",
         TextSize = UIScale.LogoSubFontSize,
         Font = FontBold,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -597,14 +876,13 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = LogoHeaderCard,
     })
 
-    -- Discord Button
     local DiscordBtn = Create("TextButton", {
         Name = "DiscordBtn",
         Size = UDim2.new(1, -16, 0, 34),
         Position = UDim2.new(0, 8, 1, -96),
-        BackgroundColor3 = Y2K.BgInput,
+        ThemeBackground = "BgInput",
         Text = "Discord",
-        TextColor3 = Y2K.NeonSoft,
+        ThemeText = "NeonSoft",
         Font = FontBold,
         TextSize = UIScale.DiscordFontSize,
         AutoButtonColor = false,
@@ -619,15 +897,15 @@ function LunoLibrary:CreateWindow(Settings)
         LunoLibrary:Notify({
             Title   = "Discord Invite",
             Content = "Successfully copied Discord link!",
+            Type    = "Success",
             Duration = 3
         })
     end)
 
-    -- User Card
     local UserCard = Create("TextButton", {
         Size = UDim2.new(1, -16, 0, 50),
         Position = UDim2.new(0, 8, 1, -58),
-        BackgroundColor3 = Y2K.BgInput,
+        ThemeBackground = "BgInput",
         Text = "",
         AutoButtonColor = false,
         Parent = LeftSidebar,
@@ -639,7 +917,7 @@ function LunoLibrary:CreateWindow(Settings)
     local UserAvatar = Create("ImageLabel", {
         Size = UDim2.new(0, 34, 0, 34),
         Position = UDim2.new(0, 8, 0.5, -17),
-        BackgroundColor3 = Y2K.BgDeep,
+        ThemeBackground = "BgDeep",
         Parent = UserCard,
     })
     AddCorner(UserAvatar, UDim.new(1, 0))
@@ -660,7 +938,7 @@ function LunoLibrary:CreateWindow(Settings)
         Position = UDim2.new(0, 48, 0, 9),
         BackgroundTransparency = 1,
         Text = LocalPlayer.DisplayName,
-        TextColor3 = Y2K.Text,
+        ThemeText = "Text",
         TextSize = UIScale.UserFontSize,
         Font = FontBold,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -673,7 +951,7 @@ function LunoLibrary:CreateWindow(Settings)
         Position = UDim2.new(0, 48, 0, 26),
         BackgroundTransparency = 1,
         Text = CurrentGameName,
-        TextColor3 = Y2K.NeonSoft,
+        ThemeText = "NeonSoft",
         TextSize = UIScale.UserSubFontSize,
         Font = FontBody,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -681,7 +959,6 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = UserCard,
     })
 
-    -- Nav Container
     local NavContainer = Create("ScrollingFrame", {
         Name = "NavContainer",
         Size = UDim2.new(1, -16, 1, -186),
@@ -702,12 +979,11 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = NavContainer,
     })
 
-    -- Banner
     local Banner = Create("Frame", {
         Name = "Banner",
         Size = UDim2.new(1, -(SidebarGap + WindowInset), 0, 65),
         Position = UDim2.new(0, SidebarGap, 0, WindowInset + 8),
-        BackgroundColor3 = Y2K.BgPanel2,
+        ThemeBackground = "BgPanel2",
         ClipsDescendants = true,
         Parent = MainFrame,
     })
@@ -743,14 +1019,13 @@ function LunoLibrary:CreateWindow(Settings)
         Position = UDim2.new(0, 15, 0, 38),
         BackgroundTransparency = 1,
         Text = "MORE THAN JUST SCRIPTS.",
-        TextColor3 = Y2K.NeonSoft,
+        ThemeText = "NeonSoft",
         TextSize = UIScale.BannerSubSize,
         Font = FontBold,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = Banner,
     })
 
-    -- ── Window Controls (di dalam Banner) ─────────────────
     local Controls = Create("Frame", {
         Size = UDim2.new(0, 38, 0, 14),
         Position = UDim2.new(1, -48, 0, 10),
@@ -761,7 +1036,7 @@ function LunoLibrary:CreateWindow(Settings)
 
     local MinDot = Create("TextButton", {
         Size = UDim2.new(0, 14, 0, 14),
-        BackgroundColor3 = Y2K.Cyan,
+        ThemeBackground = "Cyan",
         Text = "",
         AutoButtonColor = false,
         ZIndex = 16,
@@ -773,14 +1048,15 @@ function LunoLibrary:CreateWindow(Settings)
     local CloseDot = Create("TextButton", {
         Size = UDim2.new(0, 14, 0, 14),
         Position = UDim2.new(0, 24, 0, 0),
-        BackgroundColor3 = Y2K.Pink,
+        ThemeBackground = "Pink",
         Text = "",
         AutoButtonColor = false,
         ZIndex = 16,
         Parent = Controls,
     })
     AddCorner(CloseDot, UDim.new(1, 0))
-    AddChromeStroke(CloseDot, 1, 0.3).Color = Y2K.Pink
+    local closeDotStroke = AddChromeStroke(CloseDot, 1, 0.3)
+    closeDotStroke.Color = Y2K.Pink
 
     local IsVisible = true
     local LastSize  = MainFrame.Size
@@ -825,7 +1101,14 @@ function LunoLibrary:CreateWindow(Settings)
         ToggleUI()
     end)
     CloseDot.MouseButton1Click:Connect(function()
-        if getgenv().LunoUI_Cleanup then getgenv().LunoUI_Cleanup() end
+        LunoLibrary:Confirm({
+            Title = "Close UI",
+            Content = "This will fully destroy the UI and disconnect all features. Continue?",
+            ConfirmText = "Close",
+            OnConfirm = function()
+                if getgenv().LunoUI_Cleanup then getgenv().LunoUI_Cleanup() end
+            end,
+        })
     end)
 
     RegisterConnection(UserInputService.InputBegan:Connect(function(input, gpe)
@@ -834,7 +1117,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     end))
 
-    -- Content Container
     local ContentTop = WindowInset + 8 + 65 + 8
     local ContentContainer = Create("Frame", {
         Name = "ContentContainer",
@@ -844,7 +1126,7 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = MainFrame,
     })
 
-    -- ── Tab System ────────────────────────────────────────
+    -- ── Tab System (with lazy load) ────────────────────────
     local Tabs           = {}
     local ActiveTab      = nil
     local UserTabCounter = 0
@@ -858,6 +1140,9 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function SwitchTab(TargetTab)
+        if not TargetTab.Loaded then
+            TargetTab.Flush()
+        end
         for _, tab in pairs(Tabs) do
             if tab ~= TargetTab then
                 SetTabVisual(tab, false)
@@ -869,8 +1154,8 @@ function LunoLibrary:CreateWindow(Settings)
         ActiveTab = TargetTab
     end
 
-    -- ── CreateTab ─────────────────────────────────────────
-    local function CreateTabInternal(TabName, FixedOrder, IsHidden, IsSystem)
+    -- ── CreateTab Internal (lazy) ───────────────────────────
+    local function CreateTabInternal(TabName, FixedOrder, IsHidden, IsSystem, IconId)
         if not IsSystem then UserTabCounter = UserTabCounter + 1 end
         local LayoutOrderValue = FixedOrder or UserTabCounter
 
@@ -894,6 +1179,19 @@ function LunoLibrary:CreateWindow(Settings)
             })
             HolderStroke = AddChromeStroke(Holder, 1, 1)
 
+            local textPadLeft = 16
+            if IconId then
+                local IconImg = Create("ImageLabel", {
+                    Size = UDim2.new(0, 18, 0, 18),
+                    Position = UDim2.new(0, 14, 0.5, -9),
+                    BackgroundTransparency = 1,
+                    Image = IconId,
+                    ImageColor3 = Y2K.TextDim,
+                    Parent = Holder,
+                })
+                textPadLeft = 40
+            end
+
             TabButton = Create("TextButton", {
                 Size = UDim2.new(1, 0, 1, 0),
                 BackgroundTransparency = 1,
@@ -905,7 +1203,7 @@ function LunoLibrary:CreateWindow(Settings)
                 AutoButtonColor = false,
                 Parent = Holder,
             })
-            Create("UIPadding", {PaddingLeft = UDim.new(0, 16), Parent = TabButton})
+            Create("UIPadding", {PaddingLeft = UDim.new(0, textPadLeft), Parent = TabButton})
         end
 
         local TabPage = Create("Frame", {
@@ -915,13 +1213,33 @@ function LunoLibrary:CreateWindow(Settings)
             Parent = ContentContainer,
         })
 
+        local PendingQueue = {}
         local TabObj = {
             Holder = Holder,
             Label  = TabButton,
             Stroke = HolderStroke,
             Page   = TabPage,
             Hidden = IsHidden or false,
+            Loaded = false,
         }
+        function TabObj.Flush()
+            if TabObj.Loaded then return end
+            TabObj.Loaded = true
+            local q = PendingQueue
+            PendingQueue = {}
+            for _, fn in ipairs(q) do
+                pcall(fn)
+            end
+        end
+
+        local function QueueOrRun(fn)
+            if TabObj.Loaded then
+                fn()
+            else
+                table.insert(PendingQueue, fn)
+            end
+        end
+
         Tabs[TabName] = TabObj
 
         if TabButton then
@@ -986,7 +1304,7 @@ function LunoLibrary:CreateWindow(Settings)
                     Create("Frame", {
                         Name = "RowDivider",
                         Size = UDim2.new(1, 0, 0, 1),
-                        BackgroundColor3 = Y2K.Neon,
+                        ThemeBackground = "Neon",
                         BackgroundTransparency = 0.85,
                         BorderSizePixel = 0,
                         LayoutOrder = NextOrder(),
@@ -1012,57 +1330,59 @@ function LunoLibrary:CreateWindow(Settings)
             Opts = Opts or {}
             local UseBox = Opts.Box or false
 
-            CurrentContainer   = ScrollElements
-            InsideBox          = false
-            CurrentBoxRowCount = 0
+            QueueOrRun(function()
+                CurrentContainer   = ScrollElements
+                InsideBox          = false
+                CurrentBoxRowCount = 0
 
-            local SecFrame = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, 26),
-                BackgroundTransparency = 1,
-                LayoutOrder = NextOrder(),
-                Parent = ScrollElements,
-            })
-
-            Create("TextLabel", {
-                Size = UDim2.new(1, 0, 1, 0),
-                BackgroundTransparency = 1,
-                Text = string.upper(SectionName),
-                TextColor3 = Y2K.NeonSoft,
-                TextSize = UIScale.SectionFontSize,
-                Font = FontBold,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextYAlignment = Enum.TextYAlignment.Bottom,
-                Parent = SecFrame,
-            })
-
-            if UseBox then
-                local BoxFrame = Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 0),
-                    AutomaticSize = Enum.AutomaticSize.Y,
-                    BackgroundColor3 = Y2K.BgPanel,
-                    BorderSizePixel = 0,
-                    ClipsDescendants = true,
+                local SecFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 26),
+                    BackgroundTransparency = 1,
                     LayoutOrder = NextOrder(),
                     Parent = ScrollElements,
                 })
-                AddCorner(BoxFrame, 10)
-                AddChromeStroke(BoxFrame, 1, 0.55)
 
-                Create("UIPadding", {
-                    PaddingTop = UDim.new(0, 2),
-                    PaddingBottom = UDim.new(0, 2),
-                    Parent = BoxFrame,
-                })
-                Create("UIListLayout", {
-                    Padding = UDim.new(0, 0),
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    Parent = BoxFrame,
+                Create("TextLabel", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = string.upper(SectionName),
+                    ThemeText = "NeonSoft",
+                    TextSize = UIScale.SectionFontSize,
+                    Font = FontBold,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextYAlignment = Enum.TextYAlignment.Bottom,
+                    Parent = SecFrame,
                 })
 
-                CurrentContainer   = BoxFrame
-                InsideBox          = true
-                CurrentBoxRowCount = 0
-            end
+                if UseBox then
+                    local BoxFrame = Create("Frame", {
+                        Size = UDim2.new(1, 0, 0, 0),
+                        AutomaticSize = Enum.AutomaticSize.Y,
+                        ThemeBackground = "BgPanel",
+                        BorderSizePixel = 0,
+                        ClipsDescendants = true,
+                        LayoutOrder = NextOrder(),
+                        Parent = ScrollElements,
+                    })
+                    AddCorner(BoxFrame, 10)
+                    AddChromeStroke(BoxFrame, 1, 0.55)
+
+                    Create("UIPadding", {
+                        PaddingTop = UDim.new(0, 2),
+                        PaddingBottom = UDim.new(0, 2),
+                        Parent = BoxFrame,
+                    })
+                    Create("UIListLayout", {
+                        Padding = UDim.new(0, 0),
+                        SortOrder = Enum.SortOrder.LayoutOrder,
+                        Parent = BoxFrame,
+                    })
+
+                    CurrentContainer   = BoxFrame
+                    InsideBox          = true
+                    CurrentBoxRowCount = 0
+                end
+            end)
         end
 
         -- ── Button ────────────────────────────────────────
@@ -1071,46 +1391,52 @@ function LunoLibrary:CreateWindow(Settings)
             local Name     = Opts.Title or Opts.Name or "Button"
             local Callback = Opts.Callback or function() end
             local boxed    = InsideBox
+            local Deferred = NewDeferred()
 
-            local Btn = Create("TextButton", {
-                Size = UDim2.new(1, 0, 0, UIScale.RowHeight),
-                BackgroundColor3 = Y2K.BgInput,
-                Text = Name,
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBold,
-                AutoButtonColor = false,
-                LayoutOrder = PrepareRow(),
-                Parent = CurrentContainer,
-            })
-            StyleRow(Btn, boxed)
-            local btnStroke = (not boxed) and Btn:FindFirstChildOfClass("UIStroke") or nil
+            QueueOrRun(function()
+                local Btn = Create("TextButton", {
+                    Size = UDim2.new(1, 0, 0, UIScale.RowHeight),
+                    ThemeBackground = "BgInput",
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBold,
+                    AutoButtonColor = false,
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(Btn, boxed)
+                local btnStroke = (not boxed) and Btn:FindFirstChildOfClass("UIStroke") or nil
 
-            local idleT  = boxed and 1 or 0
-            local hoverT = boxed and 0.4 or 0
+                local idleT  = boxed and 1 or 0
+                local hoverT = boxed and 0.4 or 0
 
-            Btn.MouseEnter:Connect(function()
-                TweenService:Create(Btn, TweenInfo.new(0.15), {
-                    BackgroundColor3 = Y2K.BgDeep,
-                    BackgroundTransparency = hoverT,
-                    TextColor3 = Y2K.Chrome,
-                }):Play()
-                if btnStroke then
-                    TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.05}):Play()
-                end
+                Btn.MouseEnter:Connect(function()
+                    TweenService:Create(Btn, TweenInfo.new(0.15), {
+                        BackgroundColor3 = Y2K.BgDeep,
+                        BackgroundTransparency = hoverT,
+                        TextColor3 = Y2K.Chrome,
+                    }):Play()
+                    if btnStroke then
+                        TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.05}):Play()
+                    end
+                end)
+                Btn.MouseLeave:Connect(function()
+                    TweenService:Create(Btn, TweenInfo.new(0.15), {
+                        BackgroundColor3 = Y2K.BgInput,
+                        BackgroundTransparency = idleT,
+                        TextColor3 = Y2K.Text,
+                    }):Play()
+                    if btnStroke then
+                        TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
+                    end
+                end)
+
+                Btn.MouseButton1Click:Connect(function() task.spawn(Callback) end)
+
+                Deferred._bind(WrapElement(Btn, nil, nil))
             end)
-            Btn.MouseLeave:Connect(function()
-                TweenService:Create(Btn, TweenInfo.new(0.15), {
-                    BackgroundColor3 = Y2K.BgInput,
-                    BackgroundTransparency = idleT,
-                    TextColor3 = Y2K.Text,
-                }):Play()
-                if btnStroke then
-                    TweenService:Create(btnStroke, TweenInfo.new(0.15), {Transparency = 0.6}):Play()
-                end
-            end)
-
-            Btn.MouseButton1Click:Connect(function() task.spawn(Callback) end)
+            return Deferred
         end
 
         -- ── Toggle ────────────────────────────────────────
@@ -1120,77 +1446,84 @@ function LunoLibrary:CreateWindow(Settings)
             local Default  = Opts.Default or false
             local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
             local Callback = Opts.Callback or function() end
-            local Toggled  = Default
             local boxed    = InsideBox
+            local Deferred = NewDeferred()
 
-            SetFlag(Flag, Toggled)
-
-            local ToggleFrame = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, UIScale.RowHeight),
-                BackgroundColor3 = Y2K.BgInput,
-                LayoutOrder = PrepareRow(),
-                Parent = CurrentContainer,
-            })
-            StyleRow(ToggleFrame, boxed)
-
-            Create("TextLabel", {
-                Size = UDim2.new(1, -70, 1, 0),
-                Position = UDim2.new(0, 14, 0, 0),
-                BackgroundTransparency = 1,
-                Text = Name,
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                Parent = ToggleFrame,
-            })
-
-            local Switch = Create("Frame", {
-                Size = UDim2.new(0, 38, 0, 20),
-                Position = UDim2.new(1, -50, 0.5, -10),
-                BackgroundColor3 = Toggled and Y2K.Neon or Y2K.Track,
-                Parent = ToggleFrame,
-            })
-            AddCorner(Switch, UDim.new(1, 0))
-            AddChromeStroke(Switch, 1, 0.4)
-
-            local OnPos  = UDim2.new(1, -18, 0.5, -8)
-            local OffPos = UDim2.new(0, 2, 0.5, -8)
-
-            local Circle = Create("Frame", {
-                Size = UDim2.new(0, 16, 0, 16),
-                Position = Toggled and OnPos or OffPos,
-                BackgroundColor3 = Y2K.Chrome,
-                Parent = Switch,
-            })
-            AddCorner(Circle, UDim.new(1, 0))
-
-            local TriggerBtn = Create("TextButton", {
-                Size = UDim2.new(1, 0, 1, 0),
-                BackgroundTransparency = 1,
-                Text = "",
-                Parent = ToggleFrame,
-            })
-
-            local function SetState(val)
-                Toggled = val and true or false
+            QueueOrRun(function()
+                local Toggled = Default
                 SetFlag(Flag, Toggled)
-                TweenService:Create(Switch, TweenInfo.new(0.2), {
-                    BackgroundColor3 = Toggled and Y2K.Neon or Y2K.Track
-                }):Play()
-                TweenService:Create(Circle, TweenInfo.new(0.2), {
-                    Position = Toggled and OnPos or OffPos
-                }):Play()
-                task.spawn(Callback, Toggled)
-            end
 
-            TriggerBtn.MouseButton1Click:Connect(function() SetState(not Toggled) end)
-            if Flag then LunoLibrary.Elements[Flag] = { Set = SetState } end
+                local ToggleFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, UIScale.RowHeight),
+                    ThemeBackground = "BgInput",
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(ToggleFrame, boxed)
 
-            if Toggled then
-                task.spawn(Callback, Toggled)
-            end
+                Create("TextLabel", {
+                    Size = UDim2.new(1, -70, 1, 0),
+                    Position = UDim2.new(0, 14, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = ToggleFrame,
+                })
+
+                local Switch = Create("Frame", {
+                    Size = UDim2.new(0, 38, 0, 20),
+                    Position = UDim2.new(1, -50, 0.5, -10),
+                    BackgroundColor3 = Toggled and Y2K.Neon or Y2K.Track,
+                    Parent = ToggleFrame,
+                })
+                AddCorner(Switch, UDim.new(1, 0))
+                AddChromeStroke(Switch, 1, 0.4)
+
+                local OnPos  = UDim2.new(1, -18, 0.5, -8)
+                local OffPos = UDim2.new(0, 2, 0.5, -8)
+
+                local Circle = Create("Frame", {
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = Toggled and OnPos or OffPos,
+                    BackgroundColor3 = Y2K.Chrome,
+                    Parent = Switch,
+                })
+                AddCorner(Circle, UDim.new(1, 0))
+
+                local TriggerBtn = Create("TextButton", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    Parent = ToggleFrame,
+                })
+
+                local function SetState(val)
+                    Toggled = val and true or false
+                    SetFlag(Flag, Toggled)
+                    TweenService:Create(Switch, TweenInfo.new(0.2), {
+                        BackgroundColor3 = Toggled and Y2K.Neon or Y2K.Track
+                    }):Play()
+                    TweenService:Create(Circle, TweenInfo.new(0.2), {
+                        Position = Toggled and OnPos or OffPos
+                    }):Play()
+                    task.spawn(Callback, Toggled)
+                end
+
+                TriggerBtn.MouseButton1Click:Connect(function() SetState(not Toggled) end)
+
+                local Obj = WrapElement(ToggleFrame, Flag, SetState)
+                if Flag then LunoLibrary.Elements[Flag] = Obj end
+                Deferred._bind(Obj)
+
+                if Toggled then
+                    task.spawn(Callback, Toggled)
+                end
+            end)
+            return Deferred
         end
 
         -- ── Slider ────────────────────────────────────────
@@ -1207,137 +1540,143 @@ function LunoLibrary:CreateWindow(Settings)
             local Callback  = Opts.Callback or function() end
             local boxed     = InsideBox
             local H         = UIScale.SliderHeight
+            local Deferred  = NewDeferred()
 
-            SetFlag(Flag, Default)
+            QueueOrRun(function()
+                SetFlag(Flag, Default)
 
-            local SliderFrame = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, H),
-                BackgroundColor3 = Y2K.BgInput,
-                LayoutOrder = PrepareRow(),
-                Parent = CurrentContainer,
-            })
-            StyleRow(SliderFrame, boxed)
+                local SliderFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, H),
+                    ThemeBackground = "BgInput",
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(SliderFrame, boxed)
 
-            Create("TextLabel", {
-                Size = UDim2.new(1, -110, 0, 20),
-                Position = UDim2.new(0, 14, 0, 7),
-                BackgroundTransparency = 1,
-                Text = Name,
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                Parent = SliderFrame,
-            })
+                Create("TextLabel", {
+                    Size = UDim2.new(1, -110, 0, 20),
+                    Position = UDim2.new(0, 14, 0, 7),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = SliderFrame,
+                })
 
-            local ValLbl = Create("TextLabel", {
-                Size = UDim2.new(0, 90, 0, 20),
-                Position = UDim2.new(1, -104, 0, 7),
-                BackgroundTransparency = 1,
-                Text = tostring(Default) .. Suffix,
-                TextColor3 = Y2K.NeonSoft,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBold,
-                TextXAlignment = Enum.TextXAlignment.Right,
-                Parent = SliderFrame,
-            })
+                local ValLbl = Create("TextLabel", {
+                    Size = UDim2.new(0, 90, 0, 20),
+                    Position = UDim2.new(1, -104, 0, 7),
+                    BackgroundTransparency = 1,
+                    Text = tostring(Default) .. Suffix,
+                    ThemeText = "NeonSoft",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBold,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    Parent = SliderFrame,
+                })
 
-            local Hit = Create("Frame", {
-                Size = UDim2.new(1, -28, 0, 24),
-                Position = UDim2.new(0, 14, 0, H - 28),
-                BackgroundTransparency = 1,
-                Parent = SliderFrame,
-            })
+                local Hit = Create("Frame", {
+                    Size = UDim2.new(1, -28, 0, 24),
+                    Position = UDim2.new(0, 14, 0, H - 28),
+                    BackgroundTransparency = 1,
+                    Parent = SliderFrame,
+                })
 
-            local Bar = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, 6),
-                Position = UDim2.new(0, 0, 0.5, -3),
-                BackgroundColor3 = Y2K.Track,
-                Parent = Hit,
-            })
-            AddCorner(Bar, UDim.new(1, 0))
+                local Bar = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 6),
+                    Position = UDim2.new(0, 0, 0.5, -3),
+                    ThemeBackground = "Track",
+                    Parent = Hit,
+                })
+                AddCorner(Bar, UDim.new(1, 0))
 
-            local Fill = Create("Frame", {
-                Size = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0),
-                BackgroundColor3 = Y2K.Neon,
-                Parent = Bar,
-            })
-            AddCorner(Fill, UDim.new(1, 0))
-            Create("UIGradient", {
-                Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Y2K.Chrome),
-                    ColorSequenceKeypoint.new(1, Y2K.Neon),
-                }),
-                Parent = Fill,
-            })
+                local Fill = Create("Frame", {
+                    Size = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0),
+                    ThemeBackground = "Neon",
+                    Parent = Bar,
+                })
+                AddCorner(Fill, UDim.new(1, 0))
+                Create("UIGradient", {
+                    Color = ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Y2K.Chrome),
+                        ColorSequenceKeypoint.new(1, Y2K.Neon),
+                    }),
+                    Parent = Fill,
+                })
 
-            local Knob = Create("Frame", {
-                Size = UDim2.new(0, 14, 0, 14),
-                Position = UDim2.new((Default - Min) / (Max - Min), -7, 0.5, -7),
-                BackgroundColor3 = Y2K.Chrome,
-                ZIndex = 2,
-                Parent = Bar,
-            })
-            AddCorner(Knob, UDim.new(1, 0))
-            AddChromeStroke(Knob, 1.5, 0.1)
+                local Knob = Create("Frame", {
+                    Size = UDim2.new(0, 14, 0, 14),
+                    Position = UDim2.new((Default - Min) / (Max - Min), -7, 0.5, -7),
+                    BackgroundColor3 = Y2K.Chrome,
+                    ZIndex = 2,
+                    Parent = Bar,
+                })
+                AddCorner(Knob, UDim.new(1, 0))
+                AddChromeStroke(Knob, 1.5, 0.1)
 
-            local function Round(v)
-                v = math.clamp(v, Min, Max)
-                v = Min + math.floor((v - Min) / Increment + 0.5) * Increment
-                v = math.clamp(v, Min, Max)
-                return math.floor(v * 1000 + 0.5) / 1000
-            end
-
-            local LastValue = Default
-            local function SetSliderValue(val)
-                val = Round(tonumber(val) or Min)
-                local pct = (val - Min) / (Max - Min)
-                Fill.Size     = UDim2.new(pct, 0, 1, 0)
-                Knob.Position = UDim2.new(pct, -7, 0.5, -7)
-                ValLbl.Text   = tostring(val) .. Suffix
-                SetFlag(Flag, val)
-                if val ~= LastValue then
-                    LastValue = val
-                    task.spawn(Callback, val)
+                local function Round(v)
+                    v = math.clamp(v, Min, Max)
+                    v = Min + math.floor((v - Min) / Increment + 0.5) * Increment
+                    v = math.clamp(v, Min, Max)
+                    return math.floor(v * 1000 + 0.5) / 1000
                 end
-            end
 
-            local DraggingSlider = false
-            local function UpdateSlider(input)
-                local pct = math.clamp(
-                    (input.Position.X - Bar.AbsolutePosition.X) / math.max(Bar.AbsoluteSize.X, 1),
-                    0, 1
-                )
-                SetSliderValue(Min + (Max - Min) * pct)
-            end
-
-            Hit.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    DraggingSlider = true
-                    UpdateSlider(input)
+                local LastValue = Default
+                local function SetSliderValue(val)
+                    val = Round(tonumber(val) or Min)
+                    local pct = (val - Min) / (Max - Min)
+                    Fill.Size     = UDim2.new(pct, 0, 1, 0)
+                    Knob.Position = UDim2.new(pct, -7, 0.5, -7)
+                    ValLbl.Text   = tostring(val) .. Suffix
+                    SetFlag(Flag, val)
+                    if val ~= LastValue then
+                        LastValue = val
+                        task.spawn(Callback, val)
+                    end
                 end
+
+                local DraggingSlider = false
+                local function UpdateSlider(input)
+                    local pct = math.clamp(
+                        (input.Position.X - Bar.AbsolutePosition.X) / math.max(Bar.AbsoluteSize.X, 1),
+                        0, 1
+                    )
+                    SetSliderValue(Min + (Max - Min) * pct)
+                end
+
+                Hit.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                        DraggingSlider = true
+                        UpdateSlider(input)
+                    end
+                end)
+                RegisterConnection(UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                        DraggingSlider = false
+                    end
+                end))
+                RegisterConnection(UserInputService.InputChanged:Connect(function(input)
+                    if DraggingSlider and (
+                        input.UserInputType == Enum.UserInputType.MouseMovement
+                        or input.UserInputType == Enum.UserInputType.Touch
+                    ) then
+                        UpdateSlider(input)
+                    end
+                end))
+
+                local Obj = WrapElement(SliderFrame, Flag, SetSliderValue)
+                if Flag then LunoLibrary.Elements[Flag] = Obj end
+                Deferred._bind(Obj)
             end)
-            RegisterConnection(UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    DraggingSlider = false
-                end
-            end))
-            RegisterConnection(UserInputService.InputChanged:Connect(function(input)
-                if DraggingSlider and (
-                    input.UserInputType == Enum.UserInputType.MouseMovement
-                    or input.UserInputType == Enum.UserInputType.Touch
-                ) then
-                    UpdateSlider(input)
-                end
-            end))
-
-            if Flag then LunoLibrary.Elements[Flag] = { Set = SetSliderValue } end
+            return Deferred
         end
 
-        -- ── Dropdown ──────────────────────────────────────
+        -- ── Dropdown (Overlay-based, reused buttons) ───────
         function TabElements:CreateDropdown(Opts)
             Opts = Opts or {}
             local Name     = Opts.Title or Opts.Name or "Dropdown"
@@ -1346,236 +1685,298 @@ function LunoLibrary:CreateWindow(Settings)
             local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
             local Callback = Opts.Callback or function() end
             local boxed    = InsideBox
+            local RowH     = UIScale.RowHeight
+            local OptH     = UIScale.OptionHeight
+            local OptPad   = 2
+            local Deferred = NewDeferred()
 
-            local RowH   = UIScale.RowHeight
-            local OptH   = UIScale.OptionHeight
-            local OptPad = 2
-
-            local Selected
-            if Multi then
-                Selected = {}
-                if type(Opts.Default) == "table" then
-                    for _, v in ipairs(Opts.Default) do table.insert(Selected, v) end
-                end
-            else
-                Selected = Opts.Default or Options[1]
-            end
-
-            local CurrentOptions = Options
-            local OptButtons     = {}
-            local IsExpanded     = false
-
-            SetFlag(Flag, Selected)
-
-            local DropFrame = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, RowH),
-                BackgroundColor3 = Y2K.BgInput,
-                ClipsDescendants = true,
-                LayoutOrder = PrepareRow(),
-                Parent = CurrentContainer,
-            })
-            StyleRow(DropFrame, boxed)
-
-            Create("TextLabel", {
-                Size = UDim2.new(0.42, -14, 0, RowH),
-                Position = UDim2.new(0, 14, 0, 0),
-                BackgroundTransparency = 1,
-                Text = Name,
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                Parent = DropFrame,
-            })
-
-            local ValDisplay = Create("TextLabel", {
-                Size = UDim2.new(0.58, -44, 0, RowH),
-                Position = UDim2.new(0.42, 0, 0, 0),
-                BackgroundTransparency = 1,
-                Text = "",
-                TextColor3 = Y2K.NeonSoft,
-                TextSize = UIScale.SmallFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Right,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                Parent = DropFrame,
-            })
-
-            local Arrow = Create("TextLabel", {
-                Size = UDim2.new(0, 24, 0, RowH),
-                Position = UDim2.new(1, -32, 0, 0),
-                BackgroundTransparency = 1,
-                Text = "▼",
-                TextColor3 = Y2K.NeonSoft,
-                TextSize = 11,
-                Font = FontBold,
-                Parent = DropFrame,
-            })
-
-            local TriggerBtn = Create("TextButton", {
-                Size = UDim2.new(1, 0, 0, RowH),
-                BackgroundTransparency = 1,
-                Text = "",
-                Parent = DropFrame,
-            })
-
-            local ListHolder = Create("ScrollingFrame", {
-                Size = UDim2.new(1, -20, 0, 0),
-                Position = UDim2.new(0, 10, 0, RowH + 4),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ScrollBarThickness = 3,
-                ScrollBarImageColor3 = Y2K.Neon,
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                CanvasSize = UDim2.new(0, 0, 0, 0),
-                Parent = DropFrame,
-            })
-            Create("UIListLayout", {
-                Padding = UDim.new(0, OptPad),
-                SortOrder = Enum.SortOrder.LayoutOrder,
-                Parent = ListHolder,
-            })
-
-            local function DisplayText()
+            QueueOrRun(function()
+                local Selected
                 if Multi then
-                    if #Selected == 0 then return "None" end
-                    return table.concat(Selected, ", ")
-                end
-                return tostring(Selected)
-            end
-
-            local function ListHeight(n)
-                local vis = math.min(n, UIScale.MaxDropdownVisible)
-                if vis <= 0 then return 0 end
-                return vis * OptH + (vis - 1) * OptPad
-            end
-
-            local function ApplyHeight(animate)
-                local listH = ListHeight(#CurrentOptions)
-                ListHolder.Size = UDim2.new(1, -20, 0, listH)
-                local h = IsExpanded and (RowH + 4 + listH + 8) or RowH
-                if animate then
-                    TweenService:Create(DropFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        Size = UDim2.new(1, 0, 0, h)
-                    }):Play()
-                else
-                    DropFrame.Size = UDim2.new(1, 0, 0, h)
-                end
-                Arrow.Text = IsExpanded and "▲" or "▼"
-            end
-
-            local function IsSelected(opt)
-                if Multi then return table.find(Selected, opt) ~= nil end
-                return Selected == opt
-            end
-
-            local function UpdateHighlights()
-                for opt, btn in pairs(OptButtons) do
-                    local sel = IsSelected(opt)
-                    TweenService:Create(btn, TweenInfo.new(0.12), {
-                        BackgroundColor3 = sel and Y2K.NeonDim or Y2K.BgDeep,
-                        TextColor3 = sel and Y2K.Chrome or Y2K.Text,
-                    }):Play()
-                end
-            end
-
-            local function SetDropdownValue(val)
-                if Multi then
-                    local new = {}
-                    if type(val) == "table" then
-                        for _, v in ipairs(val) do table.insert(new, v) end
+                    Selected = {}
+                    if type(Opts.Default) == "table" then
+                        for _, v in ipairs(Opts.Default) do table.insert(Selected, v) end
                     end
-                    Selected = new
                 else
-                    Selected = val
+                    Selected = Opts.Default or Options[1]
                 end
-                ValDisplay.Text = DisplayText()
+
+                local CurrentOptions = {}
+                for _, v in ipairs(Options) do table.insert(CurrentOptions, v) end
+                local OptButtons  = {}
+                local IsExpanded  = false
+                local FollowConn  = nil
+
                 SetFlag(Flag, Selected)
-                UpdateHighlights()
-                task.spawn(Callback, Selected)
-            end
 
-            local function BuildOptions(NewOptions)
-                for _, child in ipairs(ListHolder:GetChildren()) do
-                    if child:IsA("TextButton") then child:Destroy() end
+                local DropFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    ThemeBackground = "BgInput",
+                    ClipsDescendants = true,
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(DropFrame, boxed)
+
+                Create("TextLabel", {
+                    Size = UDim2.new(0.42, -14, 0, RowH),
+                    Position = UDim2.new(0, 14, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = DropFrame,
+                })
+
+                local ValDisplay = Create("TextLabel", {
+                    Size = UDim2.new(0.58, -44, 0, RowH),
+                    Position = UDim2.new(0.42, 0, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    ThemeText = "NeonSoft",
+                    TextSize = UIScale.SmallFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = DropFrame,
+                })
+
+                local Arrow = Create("TextLabel", {
+                    Size = UDim2.new(0, 24, 0, RowH),
+                    Position = UDim2.new(1, -32, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = "▼",
+                    ThemeText = "NeonSoft",
+                    TextSize = 11,
+                    Font = FontBold,
+                    Parent = DropFrame,
+                })
+
+                local TriggerBtn = Create("TextButton", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    BackgroundTransparency = 1,
+                    Text = "",
+                    Parent = DropFrame,
+                })
+
+                local ListHolder = Create("ScrollingFrame", {
+                    Size = UDim2.new(0, 200, 0, 0),
+                    ThemeBackground = "BgPanel",
+                    BorderSizePixel = 0,
+                    ScrollBarThickness = 3,
+                    ScrollBarImageColor3 = Y2K.Neon,
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                    CanvasSize = UDim2.new(0, 0, 0, 0),
+                    Visible = false,
+                    ZIndex = 601,
+                    Parent = OverlayLayer,
+                })
+                AddCorner(ListHolder, 8)
+                AddChromeStroke(ListHolder, 1, 0.4)
+                Create("UIPadding", {
+                    PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4),
+                    PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4),
+                    Parent = ListHolder,
+                })
+                Create("UIListLayout", {
+                    Padding = UDim.new(0, OptPad),
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = ListHolder,
+                })
+
+                local function DisplayText()
+                    if Multi then
+                        if #Selected == 0 then return "None" end
+                        return table.concat(Selected, ", ")
+                    end
+                    return tostring(Selected)
                 end
-                OptButtons = {}
-                CurrentOptions = NewOptions
 
-                local needScroll = #NewOptions > UIScale.MaxDropdownVisible
-                for i, opt in ipairs(NewOptions) do
-                    local OptBtn = Create("TextButton", {
-                        Size = UDim2.new(1, needScroll and -8 or 0, 0, OptH),
-                        BackgroundColor3 = Y2K.BgDeep,
-                        Text = tostring(opt),
-                        TextColor3 = Y2K.Text,
-                        TextSize = UIScale.ElementFontSize,
-                        Font = FontBody,
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        TextTruncate = Enum.TextTruncate.AtEnd,
-                        AutoButtonColor = false,
-                        LayoutOrder = i,
-                        Parent = ListHolder,
-                    })
-                    AddCorner(OptBtn, 6)
-                    Create("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8), Parent = OptBtn})
-                    OptButtons[opt] = OptBtn
+                local function ListHeight(n)
+                    local vis = math.min(n, UIScale.MaxDropdownVisible)
+                    if vis <= 0 then return 0 end
+                    return vis * OptH + math.max(vis - 1, 0) * OptPad + 8
+                end
 
-                    OptBtn.MouseEnter:Connect(function()
-                        if IsSelected(opt) then return end
-                        TweenService:Create(OptBtn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.Track}):Play()
-                    end)
-                    OptBtn.MouseLeave:Connect(function()
-                        if IsSelected(opt) then return end
-                        TweenService:Create(OptBtn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.BgDeep}):Play()
-                    end)
+                local function IsSelected(opt)
+                    if Multi then return table.find(Selected, opt) ~= nil end
+                    return Selected == opt
+                end
 
-                    OptBtn.MouseButton1Click:Connect(function()
-                        if Multi then
-                            local new = {}
-                            for _, v in ipairs(Selected) do table.insert(new, v) end
-                            local idx = table.find(new, opt)
-                            if idx then table.remove(new, idx) else table.insert(new, opt) end
-                            SetDropdownValue(new)
-                        else
-                            SetDropdownValue(opt)
-                            IsExpanded = false
-                            ApplyHeight(true)
+                local function UpdateHighlights()
+                    for opt, btn in pairs(OptButtons) do
+                        local sel = IsSelected(opt)
+                        TweenService:Create(btn, TweenInfo.new(0.12), {
+                            BackgroundColor3 = sel and Y2K.NeonDim or Y2K.BgDeep,
+                            TextColor3 = sel and Y2K.Chrome or Y2K.Text,
+                        }):Play()
+                    end
+                end
+
+                local function SetDropdownValue(val)
+                    if Multi then
+                        local new = {}
+                        if type(val) == "table" then
+                            for _, v in ipairs(val) do table.insert(new, v) end
                         end
-                    end)
-                end
-                UpdateHighlights()
-            end
-
-            local function RefreshOptions(NewOptions)
-                BuildOptions(NewOptions)
-                if Multi then
-                    local filtered, changed = {}, false
-                    for _, v in ipairs(Selected) do
-                        if table.find(NewOptions, v) then table.insert(filtered, v) else changed = true end
+                        Selected = new
+                    else
+                        Selected = val
                     end
-                    if changed then SetDropdownValue(filtered) end
-                else
-                    if not table.find(NewOptions, Selected) and NewOptions[1] ~= nil then
-                        SetDropdownValue(NewOptions[1])
-                    end
+                    ValDisplay.Text = DisplayText()
+                    SetFlag(Flag, Selected)
+                    UpdateHighlights()
+                    task.spawn(Callback, Selected)
                 end
-                ApplyHeight(true)
-            end
 
-            ValDisplay.Text = DisplayText()
-            BuildOptions(Options)
-            ApplyHeight(false)
+                local function PositionList()
+                    local pos  = DropFrame.AbsolutePosition
+                    local size = DropFrame.AbsoluteSize
+                    local listH = ListHeight(#CurrentOptions)
+                    local vp = Camera.ViewportSize
+                    local x = math.clamp(pos.X, 4, math.max(vp.X - 204, 4))
+                    local y = pos.Y + size.Y + 4
+                    if y + listH > vp.Y - 4 then
+                        y = pos.Y - listH - 4
+                    end
+                    ListHolder.Position = UDim2.new(0, x, 0, y)
+                    ListHolder.Size = UDim2.new(0, math.max(size.X, 180), 0, listH)
+                end
 
-            TriggerBtn.MouseButton1Click:Connect(function()
-                IsExpanded = not IsExpanded
-                ApplyHeight(true)
+                local Blocker
+                local function CloseDropdown()
+                    IsExpanded = false
+                    ListHolder.Visible = false
+                    Arrow.Text = "▼"
+                    if Blocker then Blocker:Destroy(); Blocker = nil end
+                    if FollowConn then FollowConn:Disconnect(); FollowConn = nil end
+                end
+
+                local function OpenDropdown()
+                    CloseAllOverlays()
+                    IsExpanded = true
+                    PositionList()
+                    ListHolder.Visible = true
+                    Arrow.Text = "▲"
+                    Blocker = Create("TextButton", {
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        ZIndex = 599,
+                        Parent = OverlayLayer,
+                    })
+                    Blocker.MouseButton1Click:Connect(CloseDropdown)
+                    FollowConn = RegisterConnection(RunService.RenderStepped:Connect(PositionList))
+                    table.insert(ActiveOverlayClosers, CloseDropdown)
+                end
+
+                local function BuildOptions(NewOptions)
+                    for opt, btn in pairs(OptButtons) do
+                        local stillExists = false
+                        for _, o in ipairs(NewOptions) do
+                            if o == opt then stillExists = true break end
+                        end
+                        if not stillExists then
+                            btn:Destroy()
+                            OptButtons[opt] = nil
+                        end
+                    end
+                    CurrentOptions = {}
+                    for _, v in ipairs(NewOptions) do table.insert(CurrentOptions, v) end
+
+                    for i, opt in ipairs(NewOptions) do
+                        local btn = OptButtons[opt]
+                        if not btn then
+                            btn = Create("TextButton", {
+                                Size = UDim2.new(1, 0, 0, OptH),
+                                BackgroundColor3 = Y2K.BgDeep,
+                                Text = tostring(opt),
+                                TextColor3 = Y2K.Text,
+                                TextSize = UIScale.ElementFontSize,
+                                Font = FontBody,
+                                TextXAlignment = Enum.TextXAlignment.Left,
+                                TextTruncate = Enum.TextTruncate.AtEnd,
+                                AutoButtonColor = false,
+                                ZIndex = 602,
+                                Parent = ListHolder,
+                            })
+                            AddCorner(btn, 6)
+                            Create("UIPadding", {
+                                PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 8),
+                                Parent = btn,
+                            })
+                            btn.MouseEnter:Connect(function()
+                                if not IsSelected(opt) then
+                                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.Track}):Play()
+                                end
+                            end)
+                            btn.MouseLeave:Connect(function()
+                                if not IsSelected(opt) then
+                                    TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Y2K.BgDeep}):Play()
+                                end
+                            end)
+                            btn.MouseButton1Click:Connect(function()
+                                if Multi then
+                                    local new = {}
+                                    for _, v in ipairs(Selected) do table.insert(new, v) end
+                                    local idx = table.find(new, opt)
+                                    if idx then table.remove(new, idx) else table.insert(new, opt) end
+                                    SetDropdownValue(new)
+                                else
+                                    SetDropdownValue(opt)
+                                    CloseDropdown()
+                                end
+                            end)
+                            OptButtons[opt] = btn
+                        end
+                        btn.LayoutOrder = i
+                        btn.Text = tostring(opt)
+                    end
+                    UpdateHighlights()
+                end
+
+                local function RefreshOptions(NewOptions)
+                    BuildOptions(NewOptions)
+                    if Multi then
+                        local filtered, changed = {}, false
+                        for _, v in ipairs(Selected) do
+                            if table.find(NewOptions, v) then table.insert(filtered, v) else changed = true end
+                        end
+                        if changed then SetDropdownValue(filtered) end
+                    else
+                        local found = false
+                        for _, o in ipairs(NewOptions) do if o == Selected then found = true break end end
+                        if not found and NewOptions[1] ~= nil then
+                            SetDropdownValue(NewOptions[1])
+                        end
+                    end
+                    if IsExpanded then PositionList() end
+                end
+
+                ValDisplay.Text = DisplayText()
+                BuildOptions(Options)
+
+                TriggerBtn.MouseButton1Click:Connect(function()
+                    if IsExpanded then CloseDropdown() else OpenDropdown() end
+                end)
+
+                local Obj = WrapElement(DropFrame, Flag, SetDropdownValue, {
+                    Refresh = function(self, opts) RefreshOptions(opts) end
+                })
+                local origDestroy = Obj.Destroy
+                Obj.Destroy = function(self)
+                    CloseDropdown()
+                    pcall(function() ListHolder:Destroy() end)
+                    origDestroy(self)
+                end
+
+                if Flag then LunoLibrary.Elements[Flag] = Obj end
+                Deferred._bind(Obj)
             end)
-
-            if Flag then LunoLibrary.Elements[Flag] = { Set = SetDropdownValue } end
-
-            return { Refresh = RefreshOptions, Set = SetDropdownValue }
+            return Deferred
         end
 
         -- ── Input ─────────────────────────────────────────
@@ -1587,73 +1988,78 @@ function LunoLibrary:CreateWindow(Settings)
             local Flag        = Opts.Flag
             local boxed       = InsideBox
             local RowH        = UIScale.RowHeight
+            local Deferred    = NewDeferred()
 
-            local InputFrame = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, RowH),
-                BackgroundColor3 = Y2K.BgInput,
-                LayoutOrder = PrepareRow(),
-                Parent = CurrentContainer,
-            })
-            StyleRow(InputFrame, boxed)
+            QueueOrRun(function()
+                local InputFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    ThemeBackground = "BgInput",
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(InputFrame, boxed)
 
-            Create("TextLabel", {
-                Size = UDim2.new(0.4, -14, 1, 0),
-                Position = UDim2.new(0, 14, 0, 0),
-                BackgroundTransparency = 1,
-                Text = Name,
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                Parent = InputFrame,
-            })
+                Create("TextLabel", {
+                    Size = UDim2.new(0.4, -14, 1, 0),
+                    Position = UDim2.new(0, 14, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = InputFrame,
+                })
 
-            local BoxHolder = Create("Frame", {
-                Size = UDim2.new(0.6, -26, 0, RowH - 12),
-                Position = UDim2.new(0.4, 0, 0.5, -(RowH - 12) / 2),
-                BackgroundColor3 = Y2K.BgDeep,
-                Parent = InputFrame,
-            })
-            AddCorner(BoxHolder, 6)
-            local boxStroke = AddChromeStroke(BoxHolder, 1, 0.65)
+                local BoxHolder = Create("Frame", {
+                    Size = UDim2.new(0.6, -26, 0, RowH - 12),
+                    Position = UDim2.new(0.4, 0, 0.5, -(RowH - 12) / 2),
+                    ThemeBackground = "BgDeep",
+                    Parent = InputFrame,
+                })
+                AddCorner(BoxHolder, 6)
+                local boxStroke = AddChromeStroke(BoxHolder, 1, 0.65)
 
-            local Box = Create("TextBox", {
-                Size = UDim2.new(1, -16, 1, 0),
-                Position = UDim2.new(0, 8, 0, 0),
-                BackgroundTransparency = 1,
-                PlaceholderText = Placeholder,
-                PlaceholderColor3 = Y2K.TextMute,
-                Text = Opts.Default or "",
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.SmallFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                ClearTextOnFocus = false,
-                ClipsDescendants = true,
-                Parent = BoxHolder,
-            })
+                local Box = Create("TextBox", {
+                    Size = UDim2.new(1, -16, 1, 0),
+                    Position = UDim2.new(0, 8, 0, 0),
+                    BackgroundTransparency = 1,
+                    PlaceholderText = Placeholder,
+                    PlaceholderColor3 = Y2K.TextMute,
+                    Text = Opts.Default or "",
+                    ThemeText = "Text",
+                    TextSize = UIScale.SmallFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ClearTextOnFocus = false,
+                    ClipsDescendants = true,
+                    Parent = BoxHolder,
+                })
 
-            Box.Focused:Connect(function()
-                TweenService:Create(boxStroke, TweenInfo.new(0.15), {Transparency = 0.1}):Play()
+                Box.Focused:Connect(function()
+                    TweenService:Create(boxStroke, TweenInfo.new(0.15), {Transparency = 0.1}):Play()
+                end)
+                Box.FocusLost:Connect(function()
+                    TweenService:Create(boxStroke, TweenInfo.new(0.15), {Transparency = 0.65}):Play()
+                    SetFlag(Flag, Box.Text)
+                    task.spawn(Callback, Box.Text)
+                end)
+
+                local function SetText(t)
+                    Box.Text = tostring(t)
+                    SetFlag(Flag, Box.Text)
+                    task.spawn(Callback, Box.Text)
+                end
+
+                local Obj = WrapElement(InputFrame, Flag, SetText)
+                if Flag then
+                    SetFlag(Flag, Box.Text)
+                    LunoLibrary.Elements[Flag] = Obj
+                end
+                Deferred._bind(Obj)
             end)
-            Box.FocusLost:Connect(function()
-                TweenService:Create(boxStroke, TweenInfo.new(0.15), {Transparency = 0.65}):Play()
-                SetFlag(Flag, Box.Text)
-                task.spawn(Callback, Box.Text)
-            end)
-
-            local function SetText(t)
-                Box.Text = tostring(t)
-                SetFlag(Flag, Box.Text)
-                task.spawn(Callback, Box.Text)
-            end
-            if Flag then
-                SetFlag(Flag, Box.Text)
-                LunoLibrary.Elements[Flag] = { Set = SetText }
-            end
-
-            return { Set = SetText }
+            return Deferred
         end
 
         -- ── Paragraph ─────────────────────────────────────
@@ -1662,198 +2068,510 @@ function LunoLibrary:CreateWindow(Settings)
             local Title = Opts.Title or "Paragraph"
             local Desc  = Opts.Desc  or Opts.Content or ""
             local boxed = InsideBox
+            local Deferred = NewDeferred()
 
-            local ParaFrame = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, 0),
-                AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundColor3 = Y2K.BgInput,
-                BorderSizePixel = 0,
-                LayoutOrder = PrepareRow(),
-                Parent = CurrentContainer,
-            })
-            StyleRow(ParaFrame, boxed)
+            QueueOrRun(function()
+                local ParaFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 0),
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    ThemeBackground = "BgInput",
+                    BorderSizePixel = 0,
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(ParaFrame, boxed)
 
-            Create("UIPadding", {
-                PaddingTop = UDim.new(0, 9),
-                PaddingBottom = UDim.new(0, 9),
-                PaddingLeft = UDim.new(0, 14),
-                PaddingRight = UDim.new(0, 14),
-                Parent = ParaFrame,
-            })
-            Create("UIListLayout", {
-                Padding = UDim.new(0, 4),
-                SortOrder = Enum.SortOrder.LayoutOrder,
-                Parent = ParaFrame,
-            })
+                Create("UIPadding", {
+                    PaddingTop = UDim.new(0, 9), PaddingBottom = UDim.new(0, 9),
+                    PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14),
+                    Parent = ParaFrame,
+                })
+                Create("UIListLayout", {
+                    Padding = UDim.new(0, 4),
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    Parent = ParaFrame,
+                })
 
-            local TitleLbl2 = Create("TextLabel", {
-                Size = UDim2.new(1, 0, 0, 18),
-                AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundTransparency = 1,
-                Text = Title,
-                TextColor3 = Y2K.Chrome,
-                TextSize = UIScale.ElementFontSize + 1,
-                Font = FontBold,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true,
-                LayoutOrder = 1,
-                Parent = ParaFrame,
-            })
+                local TitleLbl2 = Create("TextLabel", {
+                    Size = UDim2.new(1, 0, 0, 18),
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    BackgroundTransparency = 1,
+                    Text = Title,
+                    TextColor3 = Y2K.Chrome,
+                    TextSize = UIScale.ElementFontSize + 1,
+                    Font = FontBold,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextWrapped = true,
+                    LayoutOrder = 1,
+                    Parent = ParaFrame,
+                })
 
-            local DescLbl2 = Create("TextLabel", {
-                Size = UDim2.new(1, 0, 0, 16),
-                AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundTransparency = 1,
-                Text = Desc,
-                TextColor3 = Y2K.TextDim,
-                TextSize = UIScale.SmallFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true,
-                LayoutOrder = 2,
-                Parent = ParaFrame,
-            })
+                local DescLbl2 = Create("TextLabel", {
+                    Size = UDim2.new(1, 0, 0, 16),
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    BackgroundTransparency = 1,
+                    Text = Desc,
+                    ThemeText = "TextDim",
+                    TextSize = UIScale.SmallFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextWrapped = true,
+                    LayoutOrder = 2,
+                    Parent = ParaFrame,
+                })
 
-            local ParaObj = {}
-            function ParaObj:SetTitle(t) TitleLbl2.Text = t end
-            function ParaObj:SetDesc(d)  DescLbl2.Text  = d end
-            return ParaObj
+                local Obj = WrapElement(ParaFrame, nil, nil, {
+                    SetTitle = function(self, t) TitleLbl2.Text = t end,
+                    SetDesc  = function(self, d) DescLbl2.Text  = d end,
+                })
+                Deferred._bind(Obj)
+            end)
+            return Deferred
+        end
+
+        -- ── ColorPicker ─────────────────────────────────────
+        function TabElements:CreateColorPicker(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title or Opts.Name or "Color"
+            local Default  = Opts.Default or Color3.fromRGB(0, 160, 255)
+            local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
+            local Callback = Opts.Callback or function() end
+            local boxed    = InsideBox
+            local RowH     = UIScale.RowHeight
+            local Deferred = NewDeferred()
+
+            QueueOrRun(function()
+                SetFlag(Flag, Default)
+
+                local CPFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    ThemeBackground = "BgInput",
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(CPFrame, boxed)
+
+                Create("TextLabel", {
+                    Size = UDim2.new(1, -70, 1, 0),
+                    Position = UDim2.new(0, 14, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = CPFrame,
+                })
+
+                local Swatch = Create("TextButton", {
+                    Size = UDim2.new(0, 46, 0, 24),
+                    Position = UDim2.new(1, -60, 0.5, -12),
+                    BackgroundColor3 = Default,
+                    Text = "",
+                    AutoButtonColor = false,
+                    Parent = CPFrame,
+                })
+                AddCorner(Swatch, 6)
+                AddChromeStroke(Swatch, 1, 0.3)
+
+                local Popup = Create("Frame", {
+                    Size = UDim2.new(0, 220, 0, 185),
+                    ThemeBackground = "BgPanel",
+                    Visible = false,
+                    ZIndex = 600,
+                    Parent = OverlayLayer,
+                })
+                AddCorner(Popup, 10)
+                AddChromeStroke(Popup, 1.2, 0.3, true)
+                Create("UIPadding", {
+                    PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10),
+                    Parent = Popup,
+                })
+                Create("UIListLayout", {Padding = UDim.new(0, 8), Parent = Popup})
+
+                local Preview = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 30),
+                    BackgroundColor3 = Default,
+                    LayoutOrder = 0,
+                    ZIndex = 601,
+                    Parent = Popup,
+                })
+                AddCorner(Preview, 6)
+
+                local H, S, V = Color3.toHSV(Default)
+
+                local function BuildChannelSlider(labelText, order, initVal, onChange)
+                    local Row = Create("Frame", {
+                        Size = UDim2.new(1, 0, 0, 40),
+                        BackgroundTransparency = 1,
+                        LayoutOrder = order,
+                        ZIndex = 601,
+                        Parent = Popup,
+                    })
+                    Create("TextLabel", {
+                        Size = UDim2.new(1, 0, 0, 16),
+                        BackgroundTransparency = 1,
+                        Text = labelText,
+                        ThemeText = "TextDim",
+                        TextSize = 12,
+                        Font = FontBody,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        ZIndex = 601,
+                        Parent = Row,
+                    })
+                    local Bar = Create("Frame", {
+                        Size = UDim2.new(1, 0, 0, 8),
+                        Position = UDim2.new(0, 0, 0, 22),
+                        ThemeBackground = "Track",
+                        ZIndex = 601,
+                        Parent = Row,
+                    })
+                    AddCorner(Bar, UDim.new(1, 0))
+                    local Fill = Create("Frame", {
+                        Size = UDim2.new(initVal, 0, 1, 0),
+                        ThemeBackground = "Neon",
+                        ZIndex = 602,
+                        Parent = Bar,
+                    })
+                    AddCorner(Fill, UDim.new(1, 0))
+                    local Knob = Create("Frame", {
+                        Size = UDim2.new(0, 12, 0, 12),
+                        Position = UDim2.new(initVal, -6, 0.5, -6),
+                        BackgroundColor3 = Y2K.Chrome,
+                        ZIndex = 603,
+                        Parent = Bar,
+                    })
+                    AddCorner(Knob, UDim.new(1, 0))
+
+                    local dragging = false
+                    local function update(input)
+                        local pct = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / math.max(Bar.AbsoluteSize.X, 1), 0, 1)
+                        Fill.Size = UDim2.new(pct, 0, 1, 0)
+                        Knob.Position = UDim2.new(pct, -6, 0.5, -6)
+                        onChange(pct)
+                    end
+                    Bar.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                            dragging = true
+                            update(input)
+                        end
+                    end)
+                    RegisterConnection(UserInputService.InputEnded:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                            dragging = false
+                        end
+                    end))
+                    RegisterConnection(UserInputService.InputChanged:Connect(function(input)
+                        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                            update(input)
+                        end
+                    end))
+                end
+
+                local function RefreshColor()
+                    local c = Color3.fromHSV(H, S, V)
+                    Preview.BackgroundColor3 = c
+                    Swatch.BackgroundColor3 = c
+                    SetFlag(Flag, c)
+                    task.spawn(Callback, c)
+                end
+
+                BuildChannelSlider("Hue", 1, H, function(p) H = p RefreshColor() end)
+                BuildChannelSlider("Saturation", 2, S, function(p) S = p RefreshColor() end)
+                BuildChannelSlider("Value", 3, V, function(p) V = p RefreshColor() end)
+
+                local IsOpen = false
+                local Blocker
+                local function ClosePopup()
+                    IsOpen = false
+                    Popup.Visible = false
+                    if Blocker then Blocker:Destroy(); Blocker = nil end
+                end
+                local function OpenPopup()
+                    CloseAllOverlays()
+                    IsOpen = true
+                    local pos = Swatch.AbsolutePosition
+                    local size = Swatch.AbsoluteSize
+                    local vp = Camera.ViewportSize
+                    Popup.Position = UDim2.new(0, math.clamp(pos.X - 170, 4, vp.X - 224), 0, pos.Y + size.Y + 6)
+                    Popup.Visible = true
+                    Blocker = Create("TextButton", {
+                        Size = UDim2.new(1, 0, 1, 0),
+                        BackgroundTransparency = 1,
+                        Text = "",
+                        ZIndex = 599,
+                        Parent = OverlayLayer,
+                    })
+                    Blocker.MouseButton1Click:Connect(ClosePopup)
+                    table.insert(ActiveOverlayClosers, ClosePopup)
+                end
+
+                Swatch.MouseButton1Click:Connect(function()
+                    if IsOpen then ClosePopup() else OpenPopup() end
+                end)
+
+                local Obj = WrapElement(CPFrame, Flag, function(v)
+                    if typeof(v) == "Color3" then
+                        H, S, V = Color3.toHSV(v)
+                        RefreshColor()
+                    end
+                end)
+                local origDestroy = Obj.Destroy
+                Obj.Destroy = function(self)
+                    ClosePopup()
+                    pcall(function() Popup:Destroy() end)
+                    origDestroy(self)
+                end
+
+                if Flag then LunoLibrary.Elements[Flag] = Obj end
+                Deferred._bind(Obj)
+            end)
+            return Deferred
+        end
+
+        -- ── Keybind ───────────────────────────────────────
+        function TabElements:CreateKeybind(Opts)
+            Opts = Opts or {}
+            local Name     = Opts.Title or Opts.Name or "Keybind"
+            local Default  = Opts.Default
+            local Flag     = Opts.Flag; if Flag == nil then Flag = Name end
+            local Callback = Opts.Callback or function() end
+            local boxed    = InsideBox
+            local RowH     = UIScale.RowHeight
+            local Deferred = NewDeferred()
+
+            QueueOrRun(function()
+                local CurrentKey = Default
+                SetFlag(Flag, CurrentKey)
+
+                local KBFrame = Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, RowH),
+                    ThemeBackground = "BgInput",
+                    LayoutOrder = PrepareRow(),
+                    Parent = CurrentContainer,
+                })
+                StyleRow(KBFrame, boxed)
+
+                Create("TextLabel", {
+                    Size = UDim2.new(1, -110, 1, 0),
+                    Position = UDim2.new(0, 14, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = Name,
+                    ThemeText = "Text",
+                    TextSize = UIScale.ElementFontSize,
+                    Font = FontBody,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Parent = KBFrame,
+                })
+
+                local KeyBtn = Create("TextButton", {
+                    Size = UDim2.new(0, 90, 0, RowH - 12),
+                    Position = UDim2.new(1, -100, 0.5, -(RowH - 12) / 2),
+                    ThemeBackground = "BgDeep",
+                    Text = CurrentKey and CurrentKey.Name or "None",
+                    ThemeText = "NeonSoft",
+                    TextSize = UIScale.SmallFontSize,
+                    Font = FontBold,
+                    AutoButtonColor = false,
+                    Parent = KBFrame,
+                })
+                AddCorner(KeyBtn, 6)
+                local kbStroke = AddChromeStroke(KeyBtn, 1, 0.5)
+
+                local Listening = false
+                KeyBtn.MouseButton1Click:Connect(function()
+                    if Listening then return end
+                    Listening = true
+                    KeyBtn.Text = "..."
+                    TweenService:Create(kbStroke, TweenInfo.new(0.15), {Transparency = 0.05}):Play()
+                end)
+
+                RegisterConnection(UserInputService.InputBegan:Connect(function(input, gpe)
+                    if Listening and input.UserInputType == Enum.UserInputType.Keyboard then
+                        CurrentKey = input.KeyCode
+                        KeyBtn.Text = CurrentKey.Name
+                        Listening = false
+                        TweenService:Create(kbStroke, TweenInfo.new(0.15), {Transparency = 0.5}):Play()
+                        SetFlag(Flag, CurrentKey)
+                        task.spawn(Callback, CurrentKey)
+                    elseif not Listening and not gpe and CurrentKey and input.KeyCode == CurrentKey then
+                        task.spawn(Callback, CurrentKey)
+                    end
+                end))
+
+                local Obj = WrapElement(KBFrame, Flag, function(v)
+                    if typeof(v) == "EnumItem" then
+                        CurrentKey = v
+                        KeyBtn.Text = v.Name
+                        SetFlag(Flag, v)
+                    end
+                end)
+                if Flag then LunoLibrary.Elements[Flag] = Obj end
+                Deferred._bind(Obj)
+            end)
+            return Deferred
         end
 
         -- ── Script List ───────────────────────────────────
         function TabElements:CreateScriptList()
-            local SearchFrame = Create("Frame", {
-                Size = UDim2.new(1, -10, 0, 34),
-                BackgroundColor3 = Y2K.BgInput,
-                Parent = TabPage,
-            })
-            AddCorner(SearchFrame, 8)
-            AddChromeStroke(SearchFrame, 1, 0.6)
-
-            local SearchBox2 = Create("TextBox", {
-                Size = UDim2.new(1, -20, 1, 0),
-                Position = UDim2.new(0, 12, 0, 0),
-                BackgroundTransparency = 1,
-                PlaceholderText = "Search script...",
-                PlaceholderColor3 = Y2K.TextMute,
-                Text = "",
-                TextColor3 = Y2K.Text,
-                TextSize = UIScale.ElementFontSize,
-                Font = FontBody,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                ClearTextOnFocus = false,
-                Parent = SearchFrame,
-            })
-
-            local ScrollList = Create("ScrollingFrame", {
-                Size = UDim2.new(1, -10, 1, -42),
-                Position = UDim2.new(0, 0, 0, 40),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ScrollBarThickness = 3,
-                ScrollBarImageColor3 = Y2K.Neon,
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                CanvasSize = UDim2.new(0, 0, 0, 0),
-                Parent = TabPage,
-            })
-            Create("UIListLayout", {Padding = UDim.new(0, 6), Parent = ScrollList})
-
-            local CardsList = {}
-
-            SearchBox2:GetPropertyChangedSignal("Text"):Connect(function()
-                local text = string.lower(SearchBox2.Text)
-                for _, item in ipairs(CardsList) do
-                    item.CardFrame.Visible =
-                        string.find(string.lower(item.Title), text, 1, true) ~= nil
-                end
-            end)
-
-            local ScriptListObj = {}
-            function ScriptListObj:AddCard(CardData)
-                CardData = CardData or {}
-                local CTitle    = CardData.Title       or "Script Title"
-                local CDesc     = CardData.Description or "Description..."
-                local CIcon     = CardData.Icon        or "rbxassetid://6031763426"
-                local CCallback = CardData.Callback    or function() end
-
-                local Card = Create("Frame", {
-                    Size = UDim2.new(1, -6, 0, 58),
-                    BackgroundColor3 = Y2K.BgPanel2,
-                    Parent = ScrollList,
+            local Deferred = NewDeferred()
+            QueueOrRun(function()
+                local SearchFrame = Create("Frame", {
+                    Size = UDim2.new(1, -10, 0, 34),
+                    ThemeBackground = "BgInput",
+                    Parent = TabPage,
                 })
-                AddCorner(Card, 8)
-                AddChromeStroke(Card, 1, 0.6)
+                AddCorner(SearchFrame, 8)
+                AddChromeStroke(SearchFrame, 1, 0.6)
 
-                Create("ImageLabel", {
-                    Size = UDim2.new(0, 38, 0, 38),
-                    Position = UDim2.new(0, 10, 0.5, -19),
-                    Image = CIcon,
+                local SearchBox2 = Create("TextBox", {
+                    Size = UDim2.new(1, -20, 1, 0),
+                    Position = UDim2.new(0, 12, 0, 0),
                     BackgroundTransparency = 1,
-                    Parent = Card,
-                })
-
-                Create("TextLabel", {
-                    Size = UDim2.new(1, -160, 0, 20),
-                    Position = UDim2.new(0, 58, 0, 9),
-                    BackgroundTransparency = 1,
-                    Text = CTitle,
-                    TextColor3 = Y2K.Text,
+                    PlaceholderText = "Search script...",
+                    PlaceholderColor3 = Y2K.TextMute,
+                    Text = "",
+                    ThemeText = "Text",
                     TextSize = UIScale.ElementFontSize,
-                    Font = FontBold,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    Parent = Card,
-                })
-
-                Create("TextLabel", {
-                    Size = UDim2.new(1, -160, 0, 16),
-                    Position = UDim2.new(0, 58, 0, 31),
-                    BackgroundTransparency = 1,
-                    Text = CDesc,
-                    TextColor3 = Y2K.TextDim,
-                    TextSize = UIScale.SmallFontSize - 1,
                     Font = FontBody,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    Parent = Card,
+                    ClearTextOnFocus = false,
+                    Parent = SearchFrame,
                 })
 
-                local ExecBtn = Create("TextButton", {
-                    Size = UDim2.new(0, 78, 0, 32),
-                    Position = UDim2.new(1, -88, 0.5, -16),
-                    BackgroundColor3 = Y2K.Neon,
-                    Text = "Execute",
-                    TextColor3 = Color3.fromRGB(255, 255, 255),
-                    TextSize = UIScale.SmallFontSize,
-                    Font = FontBold,
-                    AutoButtonColor = false,
-                    Parent = Card,
+                local ScrollList = Create("ScrollingFrame", {
+                    Size = UDim2.new(1, -10, 1, -42),
+                    Position = UDim2.new(0, 0, 0, 40),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    ScrollBarThickness = 3,
+                    ScrollBarImageColor3 = Y2K.Neon,
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                    CanvasSize = UDim2.new(0, 0, 0, 0),
+                    Parent = TabPage,
                 })
-                AddCorner(ExecBtn, 6)
-                local execStroke = AddChromeStroke(ExecBtn, 1, 0.3)
-                AddHoverGlow(ExecBtn, execStroke, 0.3, 0)
+                Create("UIListLayout", {Padding = UDim.new(0, 6), Parent = ScrollList})
 
-                local busy = false
-                ExecBtn.MouseButton1Click:Connect(function()
-                    if busy then return end
-                    busy = true
-                    task.spawn(CCallback)
-                    ExecBtn.Text = "Done"
-                    task.wait(1)
-                    ExecBtn.Text = "Execute"
-                    busy = false
+                local CardsList = {}
+
+                local DoFilter = Debounce(function(text)
+                    text = string.lower(text)
+                    for _, item in ipairs(CardsList) do
+                        item.CardFrame.Visible =
+                            string.find(string.lower(item.Title), text, 1, true) ~= nil
+                    end
+                end, 0.25)
+
+                SearchBox2:GetPropertyChangedSignal("Text"):Connect(function()
+                    DoFilter(SearchBox2.Text)
                 end)
 
-                table.insert(CardsList, {Title = CTitle, CardFrame = Card})
-            end
-            return ScriptListObj
+                local ScriptListObj = {}
+                function ScriptListObj:AddCard(CardData)
+                    CardData = CardData or {}
+                    local CTitle    = CardData.Title       or "Script Title"
+                    local CDesc     = CardData.Description or "Description..."
+                    local CIcon     = CardData.Icon        or "rbxassetid://6031763426"
+                    local CCallback = CardData.Callback    or function() end
+
+                    local Card = Create("Frame", {
+                        Size = UDim2.new(1, -6, 0, 58),
+                        ThemeBackground = "BgPanel2",
+                        Parent = ScrollList,
+                    })
+                    AddCorner(Card, 8)
+                    AddChromeStroke(Card, 1, 0.6)
+
+                    Create("ImageLabel", {
+                        Size = UDim2.new(0, 38, 0, 38),
+                        Position = UDim2.new(0, 10, 0.5, -19),
+                        Image = CIcon,
+                        BackgroundTransparency = 1,
+                        Parent = Card,
+                    })
+
+                    Create("TextLabel", {
+                        Size = UDim2.new(1, -160, 0, 20),
+                        Position = UDim2.new(0, 58, 0, 9),
+                        BackgroundTransparency = 1,
+                        Text = CTitle,
+                        ThemeText = "Text",
+                        TextSize = UIScale.ElementFontSize,
+                        Font = FontBold,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
+                        Parent = Card,
+                    })
+
+                    Create("TextLabel", {
+                        Size = UDim2.new(1, -160, 0, 16),
+                        Position = UDim2.new(0, 58, 0, 31),
+                        BackgroundTransparency = 1,
+                        Text = CDesc,
+                        ThemeText = "TextDim",
+                        TextSize = UIScale.SmallFontSize - 1,
+                        Font = FontBody,
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
+                        Parent = Card,
+                    })
+
+                    local ExecBtn = Create("TextButton", {
+                        Size = UDim2.new(0, 78, 0, 32),
+                        Position = UDim2.new(1, -88, 0.5, -16),
+                        ThemeBackground = "Neon",
+                        Text = "Execute",
+                        TextColor3 = Color3.fromRGB(255, 255, 255),
+                        TextSize = UIScale.SmallFontSize,
+                        Font = FontBold,
+                        AutoButtonColor = false,
+                        Parent = Card,
+                    })
+                    AddCorner(ExecBtn, 6)
+                    local execStroke = AddChromeStroke(ExecBtn, 1, 0.3)
+                    AddHoverGlow(ExecBtn, execStroke, 0.3, 0)
+
+                    local busy = false
+                    ExecBtn.MouseButton1Click:Connect(function()
+                        if busy then return end
+                        busy = true
+                        task.spawn(CCallback)
+                        ExecBtn.Text = "Done"
+                        task.wait(1)
+                        ExecBtn.Text = "Execute"
+                        busy = false
+                    end)
+
+                    table.insert(CardsList, {Title = CTitle, CardFrame = Card})
+                end
+
+                local Obj = WrapElement(TabPage, nil, nil, {
+                    AddCard = function(self, data) ScriptListObj:AddCard(data) end
+                })
+                Deferred._bind(Obj)
+            end)
+            return Deferred
         end
+
+        -- ── Aliases (shorter calling convention) ───────────
+        TabElements.Section     = TabElements.CreateSection
+        TabElements.Button      = TabElements.CreateButton
+        TabElements.Toggle      = TabElements.CreateToggle
+        TabElements.Slider      = TabElements.CreateSlider
+        TabElements.Dropdown    = TabElements.CreateDropdown
+        TabElements.Input       = TabElements.CreateInput
+        TabElements.Paragraph   = TabElements.CreateParagraph
+        TabElements.ColorPicker = TabElements.CreateColorPicker
+        TabElements.Keybind     = TabElements.CreateKeybind
+        TabElements.ScriptList  = TabElements.CreateScriptList
 
         return TabElements
     end
 
-    function LunoLibrary:CreateTab(TabName, FixedOrder)
-        return CreateTabInternal(TabName, FixedOrder, false, false)
+    function LunoLibrary:CreateTab(TabName, IconId, FixedOrder)
+        return CreateTabInternal(TabName, FixedOrder, false, false, IconId)
     end
 
     -- ══════════════════════════════════════════════════════
@@ -1896,7 +2614,6 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
-    -- re-apply setelah respawn
     RegisterConnection(LocalPlayer.CharacterAdded:Connect(function(char)
         local hum = char:WaitForChild("Humanoid", 10)
         if not hum then return end
@@ -2013,41 +2730,55 @@ function LunoLibrary:CreateWindow(Settings)
         Callback = function(Value) FlySpeed = Value end
     })
 
-    -- ── ESP ───────────────────────────────────────────────
+    -- ── ESP (fixed leak via ESPObjects keyed by Player) ────
     MiscTab:CreateSection("Visual ESP Elements", {Box = true})
 
     local BoxESPEnabled  = false
     local NameESPEnabled = false
+
+    local function ClearESPFor(plr)
+        local data = ESPObjects[plr]
+        if data then
+            if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
+            if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
+            ESPObjects[plr] = nil
+        end
+    end
+    RegisterConnection(Players.PlayerRemoving:Connect(ClearESPFor))
+    table.insert(CleanupTasks, function()
+        for plr in pairs(ESPObjects) do ClearESPFor(plr) end
+    end)
 
     RegisterConnection(RunService.RenderStepped:Connect(function()
         local myChar = LocalPlayer.Character
         local myHRP  = myChar and myChar:FindFirstChild("HumanoidRootPart")
 
         for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and plr.Character then
-                local char = plr.Character
+            if plr ~= LocalPlayer then
+                if plr.Character then
+                    local char = plr.Character
+                    ESPObjects[plr] = ESPObjects[plr] or {}
+                    local data = ESPObjects[plr]
 
-                local hl = char:FindFirstChild("LunoBoxESP")
-                if BoxESPEnabled then
-                    if not hl then
-                        hl = Instance.new("Highlight")
-                        hl.Name             = "LunoBoxESP"
-                        hl.FillColor        = Y2K.Neon
-                        hl.OutlineColor     = Y2K.Chrome
-                        hl.FillTransparency = 0.5
-                        hl.Parent           = char
-                        table.insert(ESPStorage, hl)
+                    if BoxESPEnabled then
+                        if not data.Highlight or not data.Highlight.Parent then
+                            local hl = Instance.new("Highlight")
+                            hl.Name             = "LunoBoxESP"
+                            hl.FillColor        = Y2K.Neon
+                            hl.OutlineColor     = Y2K.Chrome
+                            hl.FillTransparency = 0.5
+                            hl.Parent           = char
+                            data.Highlight      = hl
+                        end
+                    elseif data.Highlight then
+                        data.Highlight:Destroy()
+                        data.Highlight = nil
                     end
-                elseif hl then
-                    hl:Destroy()
-                end
 
-                local head = char:FindFirstChild("Head")
-                local bg   = head and head:FindFirstChild("LunoNameESP")
-                if NameESPEnabled then
-                    if head then
-                        if not bg then
-                            bg = Instance.new("BillboardGui")
+                    local head = char:FindFirstChild("Head")
+                    if NameESPEnabled and head then
+                        if not data.Billboard or not data.Billboard.Parent then
+                            local bg = Instance.new("BillboardGui")
                             bg.Name        = "LunoNameESP"
                             bg.Size        = UDim2.new(0, 130, 0, 36)
                             bg.StudsOffset = Vector3.new(0, 2.5, 0)
@@ -2063,17 +2794,20 @@ function LunoLibrary:CreateWindow(Settings)
                             lbl2.Font                   = FontBold
                             lbl2.Parent                 = bg
                             bg.Parent                   = head
-                            table.insert(ESPStorage, bg)
+                            data.Billboard = bg
                         end
                         local thHRP = char:FindFirstChild("HumanoidRootPart")
                         if myHRP and thHRP then
                             local dist = math.floor((thHRP.Position - myHRP.Position).Magnitude)
-                            local txt = bg:FindFirstChild("Txt")
+                            local txt = data.Billboard:FindFirstChild("Txt")
                             if txt then txt.Text = plr.DisplayName .. "\n[" .. dist .. "m]" end
                         end
+                    elseif data.Billboard then
+                        data.Billboard:Destroy()
+                        data.Billboard = nil
                     end
-                elseif bg then
-                    bg:Destroy()
+                else
+                    ClearESPFor(plr)
                 end
             end
         end
@@ -2117,11 +2851,11 @@ function LunoLibrary:CreateWindow(Settings)
 
     RegisterConnection(Players.PlayerAdded:Connect(function()
         task.wait(0.2)
-        if PlayerDropdownObj2 then PlayerDropdownObj2.Refresh(GetPlayerNames()) end
+        PlayerDropdownObj2:Refresh(GetPlayerNames())
     end))
     RegisterConnection(Players.PlayerRemoving:Connect(function()
         task.wait(0.2)
-        if PlayerDropdownObj2 then PlayerDropdownObj2.Refresh(GetPlayerNames()) end
+        PlayerDropdownObj2:Refresh(GetPlayerNames())
     end))
 
     MiscTab:CreateButton({
@@ -2136,12 +2870,14 @@ function LunoLibrary:CreateWindow(Settings)
                 LunoLibrary:Notify({
                     Title   = "Teleport",
                     Content = "Teleported to " .. tgt.Name,
+                    Type    = "Success",
                     Duration = 2
                 })
             else
                 LunoLibrary:Notify({
                     Title   = "Teleport",
                     Content = "Target not available.",
+                    Type    = "Error",
                     Duration = 2
                 })
             end
@@ -2217,6 +2953,7 @@ function LunoLibrary:CreateWindow(Settings)
             LunoLibrary:Notify({
                 Title   = "FPS Booster",
                 Content = "Anti-Lag Applied!",
+                Type    = "Success",
                 Duration = 3
             })
         end
@@ -2266,15 +3003,15 @@ function LunoLibrary:CreateWindow(Settings)
                 HttpService:JSONEncode(LunoLibrary.Flags)
             )
             SelectedConfigName = saveName
-            LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. saveName, Duration = 3})
+            LunoLibrary:Notify({Title = "Config Saved", Content = "Saved as: " .. saveName, Type = "Success", Duration = 3})
             if ConfigDropdownObj2 then
-                ConfigDropdownObj2.Refresh(GetSavedConfigNames())
-                ConfigDropdownObj2.Set(saveName)
+                ConfigDropdownObj2:Refresh(GetSavedConfigNames())
+                ConfigDropdownObj2:Set(saveName)
             end
         end
     })
 
-    ConfigTab:CreateSection("Load & Delete Manager", {Box = true})
+    ConfigTab:CreateSection("Load, Delete & Share", {Box = true})
 
     ConfigDropdownObj2 = ConfigTab:CreateDropdown({
         Title    = "Select Saved Config",
@@ -2288,6 +3025,17 @@ function LunoLibrary:CreateWindow(Settings)
         end
     })
 
+    local function ApplyConfigData(data)
+        if type(data) ~= "table" then return false end
+        for flag, val in pairs(data) do
+            LunoLibrary.Flags[flag] = val
+            if LunoLibrary.Elements[flag] then
+                pcall(function() LunoLibrary.Elements[flag]:Set(val) end)
+            end
+        end
+        return true
+    end
+
     ConfigTab:CreateButton({
         Title    = "Load Selected Config",
         Callback = function()
@@ -2296,25 +3044,19 @@ function LunoLibrary:CreateWindow(Settings)
                 target = GetSavedConfigNames()[1] or ""
             end
             if target == "" or target == "No Saved Configs" then
-                LunoLibrary:Notify({Title = "Error", Content = "No valid config!", Duration = 3})
+                LunoLibrary:Notify({Title = "Error", Content = "No valid config!", Type = "Error", Duration = 3})
                 return
             end
             local content = SafeReadFile("LunoConfigs/" .. target .. ".json")
             if not content then
-                LunoLibrary:Notify({Title = "Error", Content = "File not found: " .. target, Duration = 3})
+                LunoLibrary:Notify({Title = "Error", Content = "File not found: " .. target, Type = "Error", Duration = 3})
                 return
             end
             local ok, data = pcall(function() return HttpService:JSONDecode(content) end)
-            if ok and type(data) == "table" then
-                for flag, val in pairs(data) do
-                    LunoLibrary.Flags[flag] = val
-                    if LunoLibrary.Elements[flag] and LunoLibrary.Elements[flag].Set then
-                        pcall(LunoLibrary.Elements[flag].Set, val)
-                    end
-                end
-                LunoLibrary:Notify({Title = "Config Loaded", Content = "Loaded: " .. target, Duration = 3})
+            if ok and ApplyConfigData(data) then
+                LunoLibrary:Notify({Title = "Config Loaded", Content = "Loaded: " .. target, Type = "Success", Duration = 3})
             else
-                LunoLibrary:Notify({Title = "Error", Content = "Corrupted config!", Duration = 3})
+                LunoLibrary:Notify({Title = "Error", Content = "Corrupted config!", Type = "Error", Duration = 3})
             end
         end
     })
@@ -2322,22 +3064,59 @@ function LunoLibrary:CreateWindow(Settings)
     ConfigTab:CreateButton({
         Title    = "Delete Selected Config",
         Callback = function()
-            if SelectedConfigName ~= "" and SelectedConfigName ~= "No Saved Configs" then
-                SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
-                LunoLibrary:Notify({Title = "Deleted", Content = "Deleted: " .. SelectedConfigName, Duration = 3})
-                local nl = GetSavedConfigNames()
-                SelectedConfigName = nl[1] or ""
-                if ConfigDropdownObj2 then ConfigDropdownObj2.Refresh(nl) end
+            if SelectedConfigName == "" or SelectedConfigName == "No Saved Configs" then
+                LunoLibrary:Notify({Title = "Error", Content = "No config selected.", Type = "Error", Duration = 2})
+                return
             end
+            LunoLibrary:Confirm({
+                Title = "Delete Config",
+                Content = "Delete '" .. SelectedConfigName .. "'? This cannot be undone.",
+                ConfirmText = "Delete",
+                OnConfirm = function()
+                    SafeDeleteFile("LunoConfigs/" .. SelectedConfigName .. ".json")
+                    LunoLibrary:Notify({Title = "Deleted", Content = "Deleted: " .. SelectedConfigName, Type = "Success", Duration = 3})
+                    local nl = GetSavedConfigNames()
+                    SelectedConfigName = nl[1] or ""
+                    ConfigDropdownObj2:Refresh(nl)
+                end
+            })
         end
     })
 
     ConfigTab:CreateButton({
         Title    = "Refresh Config List",
         Callback = function()
-            if ConfigDropdownObj2 then
-                ConfigDropdownObj2.Refresh(GetSavedConfigNames())
-                LunoLibrary:Notify({Title = "Refreshed", Content = "Config list updated!", Duration = 2})
+            ConfigDropdownObj2:Refresh(GetSavedConfigNames())
+            LunoLibrary:Notify({Title = "Refreshed", Content = "Config list updated!", Duration = 2})
+        end
+    })
+
+    ConfigTab:CreateButton({
+        Title    = "Export Current Config to Clipboard",
+        Callback = function()
+            local ok, encoded = pcall(function() return HttpService:JSONEncode(LunoLibrary.Flags) end)
+            if ok then
+                RealSetClipboard(encoded)
+                LunoLibrary:Notify({Title = "Exported", Content = "Config copied to clipboard!", Type = "Success", Duration = 3})
+            else
+                LunoLibrary:Notify({Title = "Error", Content = "Failed to export config.", Type = "Error", Duration = 3})
+            end
+        end
+    })
+
+    ConfigTab:CreateButton({
+        Title    = "Import Config from Clipboard",
+        Callback = function()
+            local clipboard = RealGetClipboard()
+            if not clipboard or clipboard == "" then
+                LunoLibrary:Notify({Title = "Error", Content = "Clipboard is empty!", Type = "Error", Duration = 3})
+                return
+            end
+            local ok, data = pcall(function() return HttpService:JSONDecode(clipboard) end)
+            if ok and ApplyConfigData(data) then
+                LunoLibrary:Notify({Title = "Imported", Content = "Config loaded from clipboard!", Type = "Success", Duration = 3})
+            else
+                LunoLibrary:Notify({Title = "Error", Content = "Invalid config format!", Type = "Error", Duration = 3})
             end
         end
     })
@@ -2352,7 +3131,7 @@ function LunoLibrary:CreateWindow(Settings)
         Parent = ContentContainer,
     })
 
-    local ProfileTabObj = { Holder = nil, Page = ProfilePage, Hidden = true }
+    local ProfileTabObj = { Holder = nil, Page = ProfilePage, Hidden = true, Loaded = true, Flush = function() end }
     Tabs["__UserProfile__"] = ProfileTabObj
 
     UserCard.MouseButton1Click:Connect(function()
@@ -2387,9 +3166,9 @@ function LunoLibrary:CreateWindow(Settings)
         ProfileOrder = ProfileOrder + 1
         local PBtn = Create("TextButton", {
             Size = UDim2.new(1, 0, 0, UIScale.RowHeight),
-            BackgroundColor3 = Y2K.BgInput,
+            ThemeBackground = "BgInput",
             Text = Text,
-            TextColor3 = Y2K.Text,
+            ThemeText = "Text",
             TextSize = UIScale.ElementFontSize,
             Font = FontBody,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2412,13 +3191,16 @@ function LunoLibrary:CreateWindow(Settings)
     end
 
     local function ServerHop(order, needPlayers)
-        pcall(function()
-            local req = game:HttpGet(
-                "https://games.roblox.com/v1/games/" .. game.PlaceId
+        task.spawn(function()
+            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId
                 .. "/servers/0?sortOrder=" .. order .. "&limit=100"
-            )
-            local body = HttpService:JSONDecode(req)
-            if body and body.data then
+            local raw = SafeHttpGet(url)
+            if not raw then
+                LunoLibrary:Notify({Title = "Server Hop", Content = "Failed to fetch server list.", Type = "Error", Duration = 3})
+                return
+            end
+            local ok, body = pcall(function() return HttpService:JSONDecode(raw) end)
+            if ok and body and body.data then
                 for _, s in ipairs(body.data) do
                     if s.id ~= game.JobId
                     and s.playing < s.maxPlayers
@@ -2429,7 +3211,7 @@ function LunoLibrary:CreateWindow(Settings)
                     end
                 end
             end
-            LunoLibrary:Notify({Title = "Server Hop", Content = "No server found.", Duration = 3})
+            LunoLibrary:Notify({Title = "Server Hop", Content = "No server found.", Type = "Warning", Duration = 3})
         end)
     end
 
@@ -2455,7 +3237,6 @@ function LunoLibrary:CreateWindow(Settings)
         ServerHop("Asc", true)
     end)
 
-    -- Default tab (digantikan otomatis oleh tab user pertama)
     SwitchTab(Tabs["MISC"])
 
     -- ══════════════════════════════════════════════════════
